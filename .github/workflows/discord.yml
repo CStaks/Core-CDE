@@ -1,0 +1,16 @@
+name: Discord Notification
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Discord Notification
+        uses: Zmicier14/discord-webhook@v1.0.6
+        with:
+          webhookUrl: ${{ secrets.DISCORD_WEBHOOK }}
+          text: "🚀 Test message from GitHub Actions"
