@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=CDE Settings
+Comment=Configure CDE launcher and appearance defaults
+Exec=cde-settings
+Terminal=false
+Type=Application
+Categories=Settings;DesktopSettings;
+Keywords=cde;desktop;settings;qtile

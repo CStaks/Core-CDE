@@ -1,5 +1,9 @@
 # How to contribute
 
-Instead of making this document a copy of [the _contributing_ section of our
-documentation](https://docs.qtile.org/en/latest/manual/contributing.html),
-we just link to it here.
+Make a fork of the repo and submit a pull request. 
+
+Pull request requirements:
+
+1. clearly state what was fixed/altered
+2. include a screenshot of the change (if applicable)
+3. why was this change made?

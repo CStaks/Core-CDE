@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -eu
+
+export XDG_CURRENT_DESKTOP=CDE
+export DESKTOP_SESSION=CDE
+
+if command -v picom >/dev/null 2>&1; then
+    picom -b
+else
+    echo "CDE warning: picom is not installed; compositor disabled." >&2
+fi
+
+if command -v dunst >/dev/null 2>&1; then
+    dunst &
+else
+    echo "CDE warning: dunst is not installed; notifications disabled." >&2
+fi
+
+exec qtile start -b x11 -c /etc/cde/default_config.py

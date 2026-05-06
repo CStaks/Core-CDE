@@ -1,6 +1,17 @@
-qtile.desktop: A desktop file for qtile telling session managers about qtile
-    and how to run it. This file should be installed to /usr/share/xsessions
+`cde.desktop`:
+Adds the CDE session entry to display managers (`/usr/share/xsessions`).
 
-qtile-wayland.desktop: A desktop file to start qtile in wayland mode.
+`cde-session`:
+Session launcher that starts optional desktop services (`picom`, `dunst`) and runs Qtile in X11 mode with `/etc/cde/default_config.py`.
 
-99-qtile.rules: udev rules for hardware that qtile can manage
+`default_config.py`:
+System-wide CDE Qtile config. Floating-only workflow with taskbar and launcher keybinds.
+
+`cde-settings`:
+Small GUI app to update CDE user settings at `~/.config/cde/settings.json`.
+
+`cde-settings.desktop`:
+Desktop launcher entry for the CDE Settings app.
+
+`99-qtile.rules`:
+udev rules used by Qtile-supported hardware integrations.

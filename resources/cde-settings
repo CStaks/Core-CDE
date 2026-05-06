@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+import json
+import subprocess
+from pathlib import Path
+from tkinter import Button, Entry, Frame, Label, Tk, messagebox
+
+SETTINGS_DIR = Path.home() / ".config" / "cde"
+SETTINGS_PATH = SETTINGS_DIR / "settings.json"
+
+FIELDS = [
+    ("terminal", "Terminal command"),
+    ("launcher", "App launcher command"),
+    ("runner", "Command runner"),
+    ("file_search", "File search command"),
+    ("accent", "Accent color"),
+    ("bar_background", "Bar background color"),
+    ("background", "Desktop background color"),
+]
+
+DEFAULTS = {
+    "terminal": "xterm",
+    "launcher": "rofi -show drun",
+    "runner": "rofi -show run",
+    "file_search": "rofi -show filebrowser -modi filebrowser",
+    "accent": "#7aa2f7",
+    "bar_background": "#1a1b26",
+    "background": "#1f2335",
+}
+
+
+def load_settings() -> dict:
+    if not SETTINGS_PATH.exists():
+        return DEFAULTS.copy()
+
+    with SETTINGS_PATH.open(encoding="utf-8") as f:
+        data = json.load(f)
+    if not isinstance(data, dict):
+        raise ValueError(f"Invalid CDE settings format in {SETTINGS_PATH}")
+
+    settings = DEFAULTS.copy()
+    for key in settings:
+        value = data.get(key)
+        if isinstance(value, str):
+            settings[key] = value
+    return settings
+
+
+def save_settings(values: dict) -> None:
+    SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+    with SETTINGS_PATH.open("w", encoding="utf-8") as f:
+        json.dump(values, f, indent=2)
+        f.write("\n")
+
+
+def reload_qtile() -> None:
+    completed = subprocess.run(
+        ["qtile", "cmd-obj", "-o", "cmd", "-f", "reload_config"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError(completed.stderr.strip() or "Failed to reload Qtile config.")
+
+
+def main() -> None:
+    settings = load_settings()
+    root = Tk()
+    root.title("CDE Settings")
+    root.geometry("520x320")
+    root.resizable(False, False)
+
+    form = Frame(root, padx=14, pady=14)
+    form.pack(fill="both", expand=True)
+
+    entries: dict[str, Entry] = {}
+    for row, (key, label) in enumerate(FIELDS):
+        Label(form, text=label, anchor="w").grid(row=row, column=0, sticky="w", pady=5)
+        entry = Entry(form, width=52)
+        entry.insert(0, settings[key])
+        entry.grid(row=row, column=1, sticky="ew", pady=5)
+        entries[key] = entry
+
+    form.columnconfigure(1, weight=1)
+
+    def save(reload_now: bool) -> None:
+        values = {k: v.get().strip() for k, v in entries.items()}
+        save_settings(values)
+        if reload_now:
+            try:
+                reload_qtile()
+            except RuntimeError as err:
+                messagebox.showerror("CDE Settings", str(err))
+                return
+            messagebox.showinfo("CDE Settings", "Saved and reloaded CDE config.")
+            return
+        messagebox.showinfo("CDE Settings", "Saved CDE settings.")
+
+    Button(form, text="Save", command=lambda: save(False)).grid(row=len(FIELDS) + 1, column=0, pady=14)
+    Button(form, text="Save + Reload", command=lambda: save(True)).grid(
+        row=len(FIELDS) + 1, column=1, sticky="e", pady=14
+    )
+
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
