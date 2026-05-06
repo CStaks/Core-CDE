@@ -2,9 +2,9 @@ note to the developer: for any website that you may create for this project, per
 
 discord webhook workflow: follow the steps in order to make the discord webhook functional
 
-# Project Name
+# CDE
 
-Short description of what this does.
+CStaks Desktop Environment
 
 ## 🚀 Getting Started
 Steps to run locally or set up the project.
@@ -29,6 +29,5 @@ This requirement exists to ensure proper credit is given to the original authors
 
 
 ## 📄 License
-MIT 
-CStaks uses the MIT license by default.
+Apache 2.0 License
 
