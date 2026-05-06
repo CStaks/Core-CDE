@@ -1,0 +1,125 @@
+from cairocffi import ImageSurface
+
+from libqtile import configurable, pangocffi
+from libqtile.backend.base import Drawer, Internal
+from libqtile.core.manager import Qtile
+from libqtile.utils import ColorType
+
+
+class Popup(configurable.Configurable):
+    """
+    This class can be used to create popup windows that display images and/or text.
+    """
+
+    defaults = [
+        ("opacity", 1.0, "Opacity of notifications."),
+        ("foreground", "#ffffff", "Colour of text."),
+        ("background", "#111111", "Background colour."),
+        ("border", "#111111", "Border colour."),
+        ("border_width", 0, "Line width of drawn borders."),
+        ("font", "sans", "Font used in notifications."),
+        ("fontsize", 14, "Size of font."),
+        ("fontshadow", None, "Colour for text shadows, or None for no shadows."),
+        ("horizontal_padding", 0, "Padding at sides of text."),
+        ("vertical_padding", 0, "Padding at top and bottom of text."),
+        ("text_alignment", "left", "Text alignment: left, center or right."),
+        ("wrap", True, "Whether to wrap text."),
+    ]
+
+    def __init__(
+        self,
+        qtile: Qtile,
+        x: int = 50,
+        y: int = 50,
+        width: int = 256,
+        height: int = 64,
+        **config,
+    ):
+        configurable.Configurable.__init__(self, **config)
+        self.add_defaults(Popup.defaults)
+        self.qtile = qtile
+
+        self.win: Internal = qtile.core.create_internal(x, y, width, height)
+        self.win.opacity = self.opacity
+        self.win.process_button_click = self.process_button_click
+        self.win.process_window_expose = self.draw
+
+        self.drawer: Drawer = self.win.create_drawer(width, height)
+        self.clear()
+        self.layout = self.drawer.textlayout(
+            text="",
+            colour=self.foreground,
+            font_family=self.font,
+            font_size=self.fontsize,
+            font_shadow=self.fontshadow,
+            wrap=self.wrap,
+            markup=True,
+        )
+        self.layout.layout.set_alignment(pangocffi.ALIGNMENTS[self.text_alignment])
+
+        if self.border_width and self.border:
+            self.win.paint_borders(self.border, self.border_width)
+
+        self.x = self.win.x
+        self.y = self.win.y
+
+    def process_button_click(self, x, y, button) -> None:
+        if button == 1:
+            self.hide()
+
+    @property
+    def width(self) -> int:
+        return self.win.width
+
+    @width.setter
+    def width(self, value: int) -> None:
+        self.win.width = value
+        self.drawer.width = value
+
+    @property
+    def height(self) -> int:
+        return self.win.height
+
+    @height.setter
+    def height(self, value: int) -> None:
+        self.win.height = value
+        self.drawer.height = value
+
+    def set_border(self, color: ColorType) -> None:
+        self.win.paint_borders(color, self.border_width)
+
+    def clear(self) -> None:
+        self.drawer.clear(self.background)
+
+    def draw_text(self, x: int | None = None, y: int | None = None) -> None:
+        self.layout.draw(
+            x or self.horizontal_padding,
+            y or self.vertical_padding,
+        )
+
+    def draw(self) -> None:
+        self.drawer.draw()
+
+    def place(self) -> None:
+        self.win.place(
+            self.x, self.y, self.width, self.height, self.border_width, self.border, above=True
+        )
+
+    def unhide(self) -> None:
+        self.win.unhide()
+
+    def draw_image(self, image: ImageSurface, x: int, y: int) -> None:
+        """
+        Paint an image onto the window at point x, y. The image should be a surface e.g.
+        loaded from libqtile.images.Img.from_path.
+        """
+        self.drawer.ctx.set_source_surface(image, x, y)
+        self.drawer.ctx.paint()
+
+    def hide(self) -> None:
+        self.win.hide()
+
+    def kill(self) -> None:
+        self.win.kill()
+        self.layout.finalize()
+        self.drawer.finalize()

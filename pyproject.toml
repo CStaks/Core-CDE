@@ -1,0 +1,166 @@
+[build-system]
+requires = [
+    "cffi>=1.1.0",
+    "cairocffi[xcb]>=1.6.0",
+    "setuptools>=61",
+    "setuptools-scm>=7.0",
+]
+backend-path=["."]
+build-backend = "builder"
+
+[project]
+name = "qtile"
+description = "A pure-Python tiling window manager."
+requires-python = ">=3.12"
+dynamic = ["version", "readme"]
+dependencies = [
+    "cairocffi >= 1.7.0",
+    "cffi >= 1.1.0",
+    "xcffib >= 1.4.0",
+]
+license = "MIT"
+license-files = [ "LICENSE" ]
+classifiers = [
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: POSIX :: BSD :: FreeBSD",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Desktop Environment :: Window Managers",
+]
+
+[project.urls]
+"Homepage" = "https://qtile.org"
+"Documentation" = "https://docs.qtile.org/"
+"Code" = "https://github.com/qtile/qtile/"
+"Issue tracker" = "https://github.com/qtile/qtile/issues"
+"Contributing" = "https://docs.qtile.org/en/latest/manual/contributing.html"
+
+[project.scripts]
+qtile = "libqtile.scripts.main:main"
+
+[project.optional-dependencies]
+dev = [
+    "coverage",
+    "pytest-cov",
+    "pytest-asyncio>=1.1.0",
+    "pytest-httpbin",
+    "pre-commit",
+    "PyGObject",
+    "pycairo >= 1.25.1",
+    "isort",
+    "pytest >= 6.2.1",
+    "mypy",
+    "anyio",
+    "check-manifest",
+    "twine",
+    "build",
+]
+optional_core = [
+    "dbus-fast",
+    "libcst >= 1.0.0",
+    "setproctitle",
+    "prompt_toolkit",
+]
+widgets = [
+    "imaplib2",
+    "keyring",
+    "mailbox",
+    "psutil",
+    "pulsectl",
+    "pulsectl_asyncio",
+    "python-mpd2",
+    "pytz",
+    "pyxdg",
+    "xmltodict",
+    "aiohttp",
+]
+docs = [
+    "funcparserlib==1.0.0a0",
+    "numpydoc",
+    "libcst>=1.0.0",
+    "readthedocs-sphinx-ext",
+    "setuptools-scm>=7.0",
+    "sphinx_rtd_theme",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["libqtile*"]
+
+[tool.setuptools.package-data]
+"libqtile.backend.wayland" = ["*.so"]
+
+[tool.setuptools_scm]
+
+[tool.setuptools.dynamic]
+readme = {file = "README.rst"}
+
+[tool.ruff]
+line-length = 98
+exclude = ["libqtile/_ffi.*.py", "libqtile/backend/x11/_ffi.*.py", "test/configs/syntaxerr.py"]
+
+[tool.ruff.lint]
+select = [
+	"F",       # pyflakes
+	"E",       # pycodestyle errors
+	"W",       # pycodestyle warnings
+	"I",       # isort
+	"N",       # pep8-naming
+	"G",       # flake8-logging-format
+	"PIE",     # flake8-pie
+	"UP",      # pyupgrade
+]
+
+ignore = [
+    "E501",    # ignore due to conflict with formatter
+    "N818",    # exceptions don't need the Error suffix
+    "E741",    # allow ambiguous variable names
+]
+
+fixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+"stubs/*" = [
+    "N",       # naming conventions don't matter in stubs
+    "F403",    # star imports are okay in stubs
+    "F405",    # star imports are okay in stubs
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+known-first-party = ["libqtile", "test"]
+default-section = "third-party"
+
+[tool.mypy]
+mypy_path = "stubs"
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_unreachable = true
+no_implicit_optional = true
+disallow_untyped_defs = false
+disable_error_code = ["method-assign", "annotation-unchecked"]
+
+[tool.vulture]
+paths = ["libqtile"]
+exclude = ["test/configs/syntaxerr.py"]
+min_confidence = 100
+
+[tool.pytest.ini_options]
+python_files = "test_*.py"
+testpaths = ["test"]
+filterwarnings = [
+    "error:::libqtile",
+    "error:::test",
+    "ignore:::dbus_next",
+]

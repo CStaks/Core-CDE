@@ -1,0 +1,80 @@
+from libqtile.command.base import CommandError
+
+
+def assert_focused(self, name):
+    """Asserts that window with specified name is currently focused"""
+    info = self.c.window.info()
+    assert info["name"] == name, "Got {!r}, expected {!r}".format(info["name"], name)
+
+
+def assert_unfocused(self, name):
+    """Asserts that window with specified name is currently not focused"""
+    try:
+        info = self.c.window.info()
+    except CommandError:
+        # no current window, all unfocused
+        return
+    assert info["name"] != name, f"Got {name}, expected inequality."
+
+
+def assert_dimensions(self, x, y, w, h, win=None):
+    """Asserts dimensions of window"""
+    if win is None:
+        win = self.c.window
+    info = win.info()
+    assert info["x"] == x, info
+    assert info["y"] == y, info
+    assert info["width"] == w, info
+    assert info["height"] == h, info
+
+
+def assert_dimensions_fit(self, x, y, w, h, win=None):
+    """Asserts that window is within the given bounds"""
+    if win is None:
+        win = self.c.window
+    info = win.info()
+    assert info["x"] >= x, info
+    assert info["y"] >= y, info
+    assert info["width"] <= w, info
+    assert info["height"] <= h, info
+
+
+def assert_focus_path(self, *names):
+    """
+    Asserts that subsequent calls to next_window() focus the open windows in
+    the given order (and prev_window() in the reverse order)
+    """
+    for i in names:
+        self.c.group.next_window()
+        assert_focused(self, i)
+    # let's check twice for sure
+    for i in names:
+        self.c.group.next_window()
+        assert_focused(self, i)
+    # Ok, let's check backwards now
+    for i in reversed(names):
+        assert_focused(self, i)
+        self.c.group.prev_window()
+    # and twice for sure
+    for i in reversed(names):
+        assert_focused(self, i)
+        self.c.group.prev_window()
+
+
+def assert_focus_path_unordered(self, *names):
+    """
+    Wrapper of assert_focus_path that allows the actual focus path to be
+    different from the given one, as long as:
+    1) the focus order is always the same at every forward cycle
+    2) the focus order is always the opposite at every reverse cycle
+    3) all the windows are selected once and only once at every cycle
+    """
+    unordered_names = list(names)
+    ordered_names = []
+    while unordered_names:
+        self.c.group.next_window()
+        wname = self.c.window.info()["name"]
+        assert wname in unordered_names
+        unordered_names.remove(wname)
+        ordered_names.append(wname)
+    assert_focus_path(ordered_names)

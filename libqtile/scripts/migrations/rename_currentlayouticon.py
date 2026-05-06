@@ -1,0 +1,90 @@
+import libcst as cst
+import libcst.matchers as m
+
+from libqtile.scripts.migrations._base import (
+    EQUALS_NO_SPACE,
+    Check,
+    RenamerTransformer,
+    _QtileMigrator,
+    add_migration,
+)
+
+
+class RenameWidgetTransformer(RenamerTransformer):
+    from_to = ("CurrentLayoutIcon", "CurrentLayout")
+
+    @m.leave(m.Call(func=m.Attribute(attr=m.Name("CurrentLayoutIcon"))))
+    def add_kwarg_mode(self, original_node, updated_node) -> cst.Call:
+        """Adds 'mode' keyword argument to 'CurrentLayout'."""
+        self.lint(
+            original_node,
+            "CurrentLayout should add 'mode' keyword argument to have "
+            "the same functionality as previous CurrentLayoutIcon.",
+        )
+        draw_kwarg = (
+            cst.Arg(
+                keyword=cst.Name("mode"),
+                value=cst.SimpleString('"icon"'),
+                equal=EQUALS_NO_SPACE,
+            ),
+        )
+        new_args = draw_kwarg + original_node.args
+        return updated_node.with_changes(args=new_args)
+
+
+class RenameCurrentLayoutIcon(_QtileMigrator):
+    ID = "RenameCurrentLayoutIcon"
+
+    SUMMARY = "Removed ``CurrentLayoutIcon`` widget."
+
+    HELP = """
+    The ``CurrentLayoutIcon`` widget's functionality has
+    been merged with ``CurrentLayout``.
+
+    Example:
+
+    .. code:: python
+
+      widgets=[
+          widget.CurrentLayoutIcon(),
+          ...
+      ],
+
+    Should be updated as follows:
+
+    .. code:: python
+
+      widgets=[
+          widget.CurrentLayout(mode="icon"),
+          ...
+      ],
+
+    """
+
+    AFTER_VERSION = "0.32.0"
+
+    TESTS = [
+        Check(
+            """
+            from libqtile import widget
+
+            widget.CurrentLayoutIcon(font="sans")
+            widget.CurrentLayoutIcon()
+            widget.CurrentLayout(font="sans")
+            widget.CurrentLayout()
+            """,
+            """
+            from libqtile import widget
+
+            widget.CurrentLayout(mode="icon", font="sans")
+            widget.CurrentLayout(mode="icon")
+            widget.CurrentLayout(font="sans")
+            widget.CurrentLayout()
+            """,
+        )
+    ]
+
+    visitor = RenameWidgetTransformer
+
+
+add_migration(RenameCurrentLayoutIcon)

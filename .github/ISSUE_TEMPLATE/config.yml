@@ -1,10 +1,8 @@
-blank_issues_enabled: false
-
+blank_issues_enabled: true
 contact_links:
-  - name: Discussions
-    url: https://github.com/CStaks/template/discussions
-    about: Ask questions or propose ideas that are not bugs or features.
-
-  - name: Contact Us
-    url: https://cstaks.github.io/contact.html
-    about: For any questions/issues, you can contact us here.
+  - name: Feature request
+    about: Propose any new features here on our ideas board
+    url: https://github.com/qtile/qtile/discussions/categories/ideas
+  - name: Question
+    about: Ask the community a question
+    url: https://github.com/qtile/qtile#community
