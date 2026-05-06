@@ -9,8 +9,8 @@ backend-path=["."]
 build-backend = "builder"
 
 [project]
-name = "qtile"
-description = "A pure-Python tiling window manager."
+name = "cde"
+description = "CStaks Desktop Environment on the libqtile core."
 requires-python = ">=3.12"
 dynamic = ["version", "readme"]
 dependencies = [
@@ -33,11 +33,11 @@ classifiers = [
 ]
 
 [project.urls]
-"Homepage" = "https://qtile.org"
-"Documentation" = "https://docs.qtile.org/"
-"Code" = "https://github.com/qtile/qtile/"
-"Issue tracker" = "https://github.com/qtile/qtile/issues"
-"Contributing" = "https://docs.qtile.org/en/latest/manual/contributing.html"
+"Homepage" = "https://github.com/CStaks/Core-CDE"
+"Documentation" = "https://github.com/CStaks/Core-CDE#readme"
+"Code" = "https://github.com/CStaks/Core-CDE"
+"Issue tracker" = "https://github.com/CStaks/Core-CDE/issues"
+"Contributing" = "https://github.com/CStaks/Core-CDE/blob/main/CONTRIBUTING.md"
 
 [project.scripts]
 qtile = "libqtile.scripts.main:main"

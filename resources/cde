@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+set -eu
+
+run_cde() {
+    if command -v qtile >/dev/null 2>&1; then
+        exec qtile "$@"
+    else
+        exec python3 -m libqtile.scripts.main "$@"
+    fi
+}
+
+cmd="${1:-start}"
+case "$cmd" in
+    start)
+        shift || true
+        run_cde start -b x11 -c /etc/cde/default_config.py "$@"
+        ;;
+    session)
+        shift || true
+        exec cde-session "$@"
+        ;;
+    settings)
+        shift || true
+        exec cde-settings "$@"
+        ;;
+    *)
+        echo "Usage: cde [start|session|settings] [args...]" >&2
+        exit 2
+        ;;
+esac

@@ -5,4 +5,4 @@ Exec=cde-settings
 Terminal=false
 Type=Application
 Categories=Settings;DesktopSettings;
-Keywords=cde;desktop;settings;qtile
+Keywords=cde;desktop;settings;linux

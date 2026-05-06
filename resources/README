@@ -2,10 +2,13 @@
 Adds the CDE session entry to display managers (`/usr/share/xsessions`).
 
 `cde-session`:
-Session launcher that starts optional desktop services (`picom`, `dunst`) and runs Qtile in X11 mode with `/etc/cde/default_config.py`.
+Session launcher that starts optional desktop services (`picom`, `dunst`) and runs CDE in X11 mode with `/etc/cde/default_config.py`.
+
+`cde`:
+Convenience launcher (`cde start`, `cde session`, `cde settings`) used by the desktop entry and terminal usage.
 
 `default_config.py`:
-System-wide CDE Qtile config. Floating-only workflow with taskbar and launcher keybinds.
+System-wide CDE window-manager config. Floating-only workflow with taskbar and launcher keybinds.
 
 `cde-settings`:
 Small GUI app to update CDE user settings at `~/.config/cde/settings.json`.
@@ -13,5 +16,5 @@ Small GUI app to update CDE user settings at `~/.config/cde/settings.json`.
 `cde-settings.desktop`:
 Desktop launcher entry for the CDE Settings app.
 
-`99-qtile.rules`:
-udev rules used by Qtile-supported hardware integrations.
+`99-cde.rules`:
+udev rules used by CDE-supported hardware integrations.

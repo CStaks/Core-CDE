@@ -4,6 +4,14 @@ set -eu
 export XDG_CURRENT_DESKTOP=CDE
 export DESKTOP_SESSION=CDE
 
+run_cde() {
+    if command -v qtile >/dev/null 2>&1; then
+        exec qtile "$@"
+    else
+        exec python3 -m libqtile.scripts.main "$@"
+    fi
+}
+
 if command -v picom >/dev/null 2>&1; then
     picom -b
 else
@@ -16,4 +24,4 @@ else
     echo "CDE warning: dunst is not installed; notifications disabled." >&2
 fi
 
-exec qtile start -b x11 -c /etc/cde/default_config.py
+run_cde start -b x11 -c /etc/cde/default_config.py

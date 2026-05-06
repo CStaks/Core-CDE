@@ -1,16 +1,20 @@
 import json
+import shutil
 from pathlib import Path
 
 from libqtile import bar, layout, widget
 from libqtile.config import Click, Drag, Group, Key, Match, Screen
 from libqtile.lazy import lazy
-from libqtile.utils import guess_terminal
 
 SETTINGS_PATH = Path.home() / ".config" / "cde" / "settings.json"
 
+def default_terminal() -> str:
+    return "kitty" if shutil.which("kitty") else "xterm"
+
+
 DEFAULT_SETTINGS = {
     "mod": "mod4",
-    "terminal": guess_terminal(),
+    "terminal": default_terminal(),
     "launcher": "rofi -show drun",
     "runner": "rofi -show run",
     "file_search": "rofi -show filebrowser -modi filebrowser",

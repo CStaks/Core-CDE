@@ -6,13 +6,13 @@ install_deps() {
 
     if command -v apt-get >/dev/null 2>&1; then
         sudo apt-get update
-        sudo apt-get install -y picom dunst rofi flatpak python3-tk
+        sudo apt-get install -y picom dunst rofi flatpak python3-tk kitty
     elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y picom dunst rofi flatpak python3-tkinter
+        sudo dnf install -y picom dunst rofi flatpak python3-tkinter kitty
     elif command -v pacman >/dev/null 2>&1; then
-        sudo pacman -Sy --noconfirm picom dunst rofi flatpak tk
+        sudo pacman -Sy --noconfirm picom dunst rofi flatpak tk kitty
     elif command -v zypper >/dev/null 2>&1; then
-        sudo zypper --non-interactive install picom dunst rofi flatpak python3-tk
+        sudo zypper --non-interactive install picom dunst rofi flatpak python3-tk kitty
     else
         echo "No supported package manager found (apt, dnf, pacman, zypper)." >&2
         exit 1
@@ -30,13 +30,28 @@ if [ "${CDE_SKIP_DEPS:-0}" != "1" ]; then
     install_flatpak_gui
 fi
 
+install_python_package() {
+    if python3 -m pip install .; then
+        return
+    fi
+
+    if python3 -m pip install --break-system-packages .; then
+        return
+    fi
+
+    echo "Failed to install CDE Python package with pip." >&2
+    exit 1
+}
+
 echo "Installing CDE Python package..."
-python3 -m pip install .
+install_python_package
 
 echo "Installing CDE session and defaults..."
 sudo mkdir -p /etc/cde
 sudo install -m 0644 resources/default_config.py /etc/cde/default_config.py
 sudo install -m 0644 resources/cde.desktop /usr/share/xsessions/cde.desktop
+sudo install -m 0644 resources/99-cde.rules /etc/udev/rules.d/99-cde.rules
+sudo install -m 0755 resources/cde /usr/local/bin/cde
 sudo install -m 0755 resources/cde-session /usr/local/bin/cde-session
 sudo install -m 0755 resources/cde-settings /usr/local/bin/cde-settings
 sudo install -m 0644 resources/cde-settings.desktop /usr/share/applications/cde-settings.desktop
