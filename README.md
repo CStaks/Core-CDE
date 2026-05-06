@@ -16,19 +16,19 @@ CStaks Desktop Environment (CDE) is a Linux-focused desktop environment layer bu
    ```bash
    ./setup.sh
    ```
-2. Log out and choose **CDE** from your login manager session list.
+2. restart your device
+
 
 Default keybinds from the shipped CDE config:
 
-- `Super + Enter`: terminal
-- `Super + D`: app launcher (`rofi -show drun`)
-- `Super + P`: command runner (`rofi -show run`)
-- `Super + /`: file search (`rofi filebrowser mode`)
+- `Super + Q`: terminal
+- `Super + Space`: rofi launcher 
 - `Super + ,`: CDE settings GUI
 - `Super + F`: fullscreen toggle
 
-By default, `setup.sh` installs core desktop dependencies (`picom`, `dunst`, `rofi`), Flatpak, and the Flatpak GUI app store **Warehouse**.
-Set `CDE_SKIP_DEPS=1` if you only want to install CDE files without package installs.
+By default, `setup.sh` installs core desktop dependencies (`picom`, `dunst`, `rofi`, `kitty`), Flatpak, and the Flatpak GUI app store **Warehouse**.
+It also installs **LightDM** and sets it as the default login manager.
+Set `CDE_SKIP_DEPS=1` if you only want to install CDE files without package installs, and `CDE_SKIP_DM=1` to skip login-manager setup.
 Default terminal is **Kitty** when available.
 
 Session commands after install:

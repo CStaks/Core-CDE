@@ -15,9 +15,7 @@ def default_terminal() -> str:
 DEFAULT_SETTINGS = {
     "mod": "mod4",
     "terminal": default_terminal(),
-    "launcher": "rofi -show drun",
-    "runner": "rofi -show run",
-    "file_search": "rofi -show filebrowser -modi filebrowser",
+    "launcher": "rofi -show drun -modi drun,filebrowser",
     "bar_height": 30,
     "background": "#1f2335",
     "bar_background": "#1a1b26",
@@ -50,10 +48,8 @@ mod = settings["mod"]
 terminal = settings["terminal"]
 
 keys = [
-    Key([mod], "Return", lazy.spawn(terminal), desc="Launch terminal"),
-    Key([mod], "d", lazy.spawn(settings["launcher"]), desc="Open app launcher"),
-    Key([mod], "p", lazy.spawn(settings["runner"]), desc="Open command runner"),
-    Key([mod], "slash", lazy.spawn(settings["file_search"]), desc="Search files"),
+    Key([mod], "q", lazy.spawn(terminal), desc="Launch terminal"),
+    Key([mod], "space", lazy.spawn(settings["launcher"]), desc="Open launcher and file search"),
     Key([mod], "comma", lazy.spawn("cde-settings"), desc="Open CDE settings"),
     Key([mod], "w", lazy.window.kill(), desc="Close focused window"),
     Key([mod], "f", lazy.window.toggle_fullscreen(), desc="Toggle fullscreen"),

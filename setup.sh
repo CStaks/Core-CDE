@@ -1,21 +1,37 @@
 #!/usr/bin/env bash
 set -eu
 
-install_deps() {
-    echo "Installing CDE runtime dependencies..."
+PKG_MANAGER=""
 
+detect_pkg_manager() {
     if command -v apt-get >/dev/null 2>&1; then
-        sudo apt-get update
-        sudo apt-get install -y picom dunst rofi flatpak python3-tk kitty
+        PKG_MANAGER="apt"
     elif command -v dnf >/dev/null 2>&1; then
-        sudo dnf install -y picom dunst rofi flatpak python3-tkinter kitty
+        PKG_MANAGER="dnf"
     elif command -v pacman >/dev/null 2>&1; then
-        sudo pacman -Sy --noconfirm picom dunst rofi flatpak tk kitty
+        PKG_MANAGER="pacman"
     elif command -v zypper >/dev/null 2>&1; then
-        sudo zypper --non-interactive install picom dunst rofi flatpak python3-tk kitty
+        PKG_MANAGER="zypper"
     else
         echo "No supported package manager found (apt, dnf, pacman, zypper)." >&2
         exit 1
+    fi
+}
+
+install_deps() {
+    echo "Installing CDE runtime dependencies..."
+
+    detect_pkg_manager
+
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        sudo apt-get update
+        sudo apt-get install -y picom dunst rofi flatpak python3-tk kitty lightdm lightdm-gtk-greeter
+    elif [ "$PKG_MANAGER" = "dnf" ]; then
+        sudo dnf install -y picom dunst rofi flatpak python3-tkinter kitty lightdm
+    elif [ "$PKG_MANAGER" = "pacman" ]; then
+        sudo pacman -Sy --noconfirm picom dunst rofi flatpak tk kitty lightdm lightdm-gtk-greeter
+    elif [ "$PKG_MANAGER" = "zypper" ]; then
+        sudo zypper --non-interactive install picom dunst rofi flatpak python3-tk kitty lightdm
     fi
 }
 
@@ -25,9 +41,26 @@ install_flatpak_gui() {
     sudo flatpak install -y flathub io.github.flattool.Warehouse
 }
 
+configure_login_manager() {
+    echo "Configuring LightDM as default login manager..."
+
+    if command -v systemctl >/dev/null 2>&1; then
+        sudo systemctl enable lightdm.service
+        sudo systemctl set-default graphical.target
+    fi
+
+    if [ -d "/etc/X11" ]; then
+        echo "/usr/sbin/lightdm" | sudo tee /etc/X11/default-display-manager >/dev/null
+    fi
+}
+
 if [ "${CDE_SKIP_DEPS:-0}" != "1" ]; then
     install_deps
     install_flatpak_gui
+fi
+
+if [ "${CDE_SKIP_DM:-0}" != "1" ]; then
+    configure_login_manager
 fi
 
 install_python_package() {
@@ -58,3 +91,4 @@ sudo install -m 0644 resources/cde-settings.desktop /usr/share/applications/cde-
 
 echo "CDE installed. Select \"CDE\" at your login screen."
 echo "Flatpak GUI installed: Warehouse (launch with: flatpak run io.github.flattool.Warehouse)"
+echo "Login manager: LightDM (disable with CDE_SKIP_DM=1)"

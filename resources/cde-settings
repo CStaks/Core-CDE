@@ -10,9 +10,7 @@ SETTINGS_PATH = SETTINGS_DIR / "settings.json"
 
 FIELDS = [
     ("terminal", "Terminal command"),
-    ("launcher", "App launcher command"),
-    ("runner", "Command runner"),
-    ("file_search", "File search command"),
+    ("launcher", "Launcher command"),
     ("accent", "Accent color"),
     ("bar_background", "Bar background color"),
     ("background", "Desktop background color"),
@@ -20,9 +18,7 @@ FIELDS = [
 
 DEFAULTS = {
     "terminal": "kitty" if shutil.which("kitty") else "xterm",
-    "launcher": "rofi -show drun",
-    "runner": "rofi -show run",
-    "file_search": "rofi -show filebrowser -modi filebrowser",
+    "launcher": "rofi -show drun -modi drun,filebrowser",
     "accent": "#7aa2f7",
     "bar_background": "#1a1b26",
     "background": "#1f2335",
