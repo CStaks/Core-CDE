@@ -9,8 +9,8 @@ backend-path=["."]
 build-backend = "builder"
 
 [project]
-name = "cde"
-description = "CStaks Desktop Environment on the libqtile core."
+name = "cstaks-cde"
+description = "CStaks Desktop Environment."
 requires-python = ">=3.12"
 dynamic = ["version", "readme"]
 dependencies = [
@@ -18,7 +18,7 @@ dependencies = [
     "cffi >= 1.1.0",
     "xcffib >= 1.4.0",
 ]
-license = "MIT"
+license = {text = "Apache-2.0"}
 license-files = [ "LICENSE" ]
 classifiers = [
     "Intended Audience :: End Users/Desktop",
@@ -34,7 +34,7 @@ classifiers = [
 
 [project.urls]
 "Homepage" = "https://github.com/CStaks/Core-CDE"
-"Documentation" = "https://github.com/CStaks/Core-CDE#readme"
+"Documentation" = "https://cstaks.github.io/core-cde"
 "Code" = "https://github.com/CStaks/Core-CDE"
 "Issue tracker" = "https://github.com/CStaks/Core-CDE/issues"
 "Contributing" = "https://github.com/CStaks/Core-CDE/blob/main/CONTRIBUTING.md"

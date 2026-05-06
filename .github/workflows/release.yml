@@ -219,13 +219,13 @@ jobs:
           python -m pip install cffi build auditwheel
           python -m build --wheel .
           ls dist/
-          auditwheel show dist/qtile-*.whl
-          auditwheel repair --plat manylinux_2_34_x86_64 -w output_wheels dist/qtile-*.whl
+          auditwheel show dist/cstaks_cde-*.whl
+          auditwheel repair --plat manylinux_2_34_x86_64 -w output_wheels dist/cstaks_cde-*.whl
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
           name: wheels-${{ matrix.python-version }}
-          path: output_wheels/qtile*.whl
+          path: output_wheels/cstaks_cde*.whl
   test-wheel:
     name: Test wheels
     runs-on: ubuntu-latest
@@ -249,7 +249,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install wheel
-        run: pip install qtile-*.whl
+        run: pip install cstaks_cde-*.whl
       - name: Check installation
         run: qtile -h
   build-source:
