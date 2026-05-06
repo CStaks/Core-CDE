@@ -15,9 +15,9 @@ CStaks Desktop Environment (CDE) is a Linux-focused desktop environment layer bu
 you must have git installed
 
 1. Clone the repository, run:
-```bash
-git clone https://github.com/CStaks/Core-CDE   
-```
+   ```bash
+   git clone https://github.com/CStaks/Core-CDE   
+   ```
 
 2. From this repository, run:
    ```bash
