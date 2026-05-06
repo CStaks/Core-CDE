@@ -4,7 +4,7 @@
 ![Python](https://img.shields.io/badge/python-3.x-blue)
 ![Platform](https://img.shields.io/badge/platform-linux-lightgrey)
 ![Display](https://img.shields.io/badge/display-X11-orange)
-![Layout](https://img.shields.io/badge/layout-floating--tiling-blueviolet)
+![Layout](https://img.shields.io/badge/layout-floating-blueviolet)
 
 
 CStaks Desktop Environment (CDE) is a Linux-focused desktop environment layer built on top of the Qtile core.
