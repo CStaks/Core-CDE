@@ -1,4 +1,4 @@
-# CDE
+# CDE
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-3DA639?style=flat-square&logo=apache)
 ![Python](https://img.shields.io/badge/python-3.x-blue)
@@ -12,11 +12,18 @@ CStaks Desktop Environment (CDE) is a Linux-focused desktop environment layer bu
 
 ## 🚀 Getting Started
 
-1. From this repository, run:
+you must have git installed
+
+1. Clone the repository, run:
+```bash
+git clone https://github.com/CStaks/Core-CDE   
+```
+
+2. From this repository, run:
    ```bash
    ./setup.sh
    ```
-2. restart your device
+3. restart your device
 
 
 Default keybinds from the shipped CDE config:
