@@ -1,8 +1,19 @@
 #!/usr/bin/env bash
 set -eu
 
+export PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+
+config_args=()
+if [ -r /etc/cde/default_config.py ]; then
+    config_args=(-c /etc/cde/default_config.py)
+elif [ -n "${HOME:-}" ] && [ -r "${HOME}/.config/qtile/config.py" ]; then
+    config_args=(-c "${HOME}/.config/qtile/config.py")
+fi
+
 run_cde() {
-    if command -v qtile >/dev/null 2>&1; then
+    if [ -x /usr/local/bin/qtile ]; then
+        exec /usr/local/bin/qtile "$@"
+    elif command -v qtile >/dev/null 2>&1; then
         exec qtile "$@"
     else
         exec python3 -m libqtile.scripts.main "$@"
@@ -13,15 +24,17 @@ cmd="${1:-start}"
 case "$cmd" in
     start)
         shift || true
-        run_cde start -b x11 -c /etc/cde/default_config.py "$@"
+        run_cde start -b x11 "${config_args[@]}" "$@"
         ;;
     session)
         shift || true
-        exec cde-session "$@"
+        script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+        exec "${script_dir}/cde-session" "$@"
         ;;
     settings)
         shift || true
-        exec cde-settings "$@"
+        script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+        exec "${script_dir}/cde-settings" "$@"
         ;;
     *)
         echo "Usage: cde [start|session|settings] [args...]" >&2

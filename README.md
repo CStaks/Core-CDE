@@ -33,10 +33,6 @@ Default keybinds from the shipped CDE config:
 - `Super + ,`: CDE settings GUI
 - `Super + F`: fullscreen toggle
 
-By default, `setup.sh` installs core desktop dependencies (`picom`, `dunst`, `rofi`, `kitty`), Flatpak, and the Flatpak GUI app store **Warehouse**.
-It also installs **LightDM** and sets it as the default login manager.
-Set `CDE_SKIP_DEPS=1` if you only want to install CDE files without package installs, and `CDE_SKIP_DM=1` to skip login-manager setup.
-Default terminal is **Kitty** when available.
 
 Session commands after install:
 

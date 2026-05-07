@@ -50,18 +50,21 @@ configure_login_manager() {
     fi
 
     if [ -d "/etc/X11" ]; then
-        echo "/usr/sbin/lightdm" | sudo tee /etc/X11/default-display-manager >/dev/null
+        lightdm_bin="$(command -v lightdm || true)"
+        if [ -n "${lightdm_bin}" ]; then
+            echo "${lightdm_bin}" | sudo tee /etc/X11/default-display-manager >/dev/null
+        fi
     fi
 }
 
-if [ "${CDE_SKIP_DEPS:-0}" != "1" ]; then
-    install_deps
-    install_flatpak_gui
-fi
-
-if [ "${CDE_SKIP_DM:-0}" != "1" ]; then
-    configure_login_manager
-fi
+configure_lightdm_session() {
+    echo "Setting CDE as the default LightDM session..."
+    sudo mkdir -p /etc/lightdm/lightdm.conf.d
+    cat <<'EOF' | sudo tee /etc/lightdm/lightdm.conf.d/50-cde.conf >/dev/null
+[Seat:*]
+user-session=cde
+EOF
+}
 
 install_python_package() {
     if python3 -m pip install .; then
@@ -76,6 +79,11 @@ install_python_package() {
     exit 1
 }
 
+if [ "${CDE_SKIP_DEPS:-0}" != "1" ]; then
+    install_deps
+    install_flatpak_gui
+fi
+
 echo "Installing CDE Python package..."
 install_python_package
 
@@ -89,6 +97,11 @@ sudo install -m 0755 resources/cde-session /usr/local/bin/cde-session
 sudo install -m 0755 resources/cde-settings /usr/local/bin/cde-settings
 sudo install -m 0644 resources/cde-settings.desktop /usr/share/applications/cde-settings.desktop
 
-echo "CDE installed. Select \"CDE\" at your login screen."
+if [ "${CDE_SKIP_DM:-0}" != "1" ]; then
+    configure_login_manager
+    configure_lightdm_session
+fi
+
+echo "CDE installed. LightDM is configured to default to \"CDE\"."
 echo "Flatpak GUI installed: Warehouse (launch with: flatpak run io.github.flattool.Warehouse)"
 echo "Login manager: LightDM (disable with CDE_SKIP_DM=1)"

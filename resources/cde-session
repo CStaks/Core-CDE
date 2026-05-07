@@ -1,27 +1,57 @@
 #!/usr/bin/env bash
 set -eu
 
+export PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
 export XDG_CURRENT_DESKTOP=CDE
 export DESKTOP_SESSION=CDE
 
+home_dir="${HOME:-/tmp}"
+log_dir="${XDG_STATE_HOME:-${home_dir}/.local/state}/cde"
+if ! mkdir -p "${log_dir}" 2>/dev/null; then
+    log_dir="/tmp/cde-${USER:-user}"
+    mkdir -p "${log_dir}"
+fi
+exec >>"${log_dir}/session.log" 2>&1
+echo "=== CDE session start $(date -Is) ==="
+
+config_args=()
+if [ -r /etc/cde/default_config.py ]; then
+    config_args=(-c /etc/cde/default_config.py)
+elif [ -n "${HOME:-}" ] && [ -r "${HOME}/.config/qtile/config.py" ]; then
+    config_args=(-c "${HOME}/.config/qtile/config.py")
+fi
+
 run_cde() {
-    if command -v qtile >/dev/null 2>&1; then
-        exec qtile "$@"
+    if [ -x /usr/local/bin/qtile ]; then
+        /usr/local/bin/qtile "$@"
+    elif command -v qtile >/dev/null 2>&1; then
+        qtile "$@"
     else
-        exec python3 -m libqtile.scripts.main "$@"
+        python3 -m libqtile.scripts.main "$@"
     fi
 }
 
 if command -v picom >/dev/null 2>&1; then
-    picom -b
+    if ! picom -b; then
+        echo "CDE warning: picom failed to start; compositor disabled." >&2
+    fi
 else
     echo "CDE warning: picom is not installed; compositor disabled." >&2
 fi
 
 if command -v dunst >/dev/null 2>&1; then
-    dunst &
+    dunst >/dev/null 2>&1 &
 else
     echo "CDE warning: dunst is not installed; notifications disabled." >&2
 fi
 
-run_cde start -b x11 -c /etc/cde/default_config.py
+set +e
+run_cde start -b x11 "${config_args[@]}"
+status=$?
+set -e
+
+if [ "${status}" -ne 0 ]; then
+    echo "CDE error: qtile exited with status ${status}."
+fi
+
+exit "${status}"

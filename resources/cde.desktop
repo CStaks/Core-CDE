@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=CDE
 Comment=Cstaks Desktop Environment (X11)
-Exec=cde session
+Exec=/usr/local/bin/cde session
 Type=Application
 DesktopNames=CDE
 Keywords=wm;desktop;x11;floating

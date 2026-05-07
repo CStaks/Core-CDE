@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=CDE Settings
 Comment=Configure CDE launcher and appearance defaults
-Exec=cde-settings
+Exec=/usr/local/bin/cde-settings
 Terminal=false
 Type=Application
 Categories=Settings;DesktopSettings;
