@@ -94,6 +94,7 @@ sudo install -m 0644 resources/cde.desktop /usr/share/xsessions/cde.desktop
 sudo install -m 0644 resources/99-cde.rules /etc/udev/rules.d/99-cde.rules
 sudo install -m 0755 resources/cde /usr/local/bin/cde
 sudo install -m 0755 resources/cde-session /usr/local/bin/cde-session
+sudo install -m 0755 resources/cde-workspaces /usr/local/bin/cde-workspaces
 sudo install -m 0755 resources/cde-settings /usr/local/bin/cde-settings
 sudo install -m 0644 resources/cde-settings.desktop /usr/share/applications/cde-settings.desktop
 

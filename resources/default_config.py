@@ -22,14 +22,17 @@ DEFAULT_SETTINGS = {
     "terminal": default_terminal(),
     "launcher": "rofi -show drun -modi drun,filebrowser",
     "launcher_fullscreen": "rofi -show drun -modi drun,filebrowser -fullscreen -show-icons",
+    "workspace_menu_cmd": "cde-workspaces",
     "file_manager": default_file_manager(),
-    "bar_height": 34,
+    "theme": "dark",
     "background": "#1f2335",
     "bar_background": "#1a1b26",
     "accent": "#7aa2f7",
     "text": "#c0caf5",
     "border_normal": "#292e42",
     "border_width": 2,
+    "titlebar_height": 28,
+    "dock_height": 54,
 }
 
 
@@ -59,6 +62,7 @@ keys = [
     Key([mod], "space", lazy.spawn(settings["launcher"]), desc="Open launcher and file search"),
     Key([mod], "a", lazy.spawn(settings["launcher_fullscreen"]), desc="Open fullscreen app launcher"),
     Key([mod], "e", lazy.spawn(settings["file_manager"]), desc="Open file manager"),
+    Key([mod], "grave", lazy.spawn(settings["workspace_menu_cmd"]), desc="Workspace picker"),
     Key([mod], "comma", lazy.spawn("cde-settings"), desc="Open CDE settings"),
     Key([mod], "w", lazy.window.kill(), desc="Close focused window"),
     Key([mod], "f", lazy.window.toggle_fullscreen(), desc="Toggle fullscreen"),
@@ -67,16 +71,31 @@ keys = [
     Key([mod, "control"], "q", lazy.shutdown(), desc="Log out from CDE"),
 ]
 
-groups = [Group(i) for i in "123456789"]
-for group in groups:
+workspace_ids = [str(i) for i in range(1, 11)]
+groups = [Group(name) for name in workspace_ids]
+
+workspace_keys = [
+    ("1", "1"),
+    ("2", "2"),
+    ("3", "3"),
+    ("4", "4"),
+    ("5", "5"),
+    ("6", "6"),
+    ("7", "7"),
+    ("8", "8"),
+    ("9", "9"),
+    ("0", "10"),
+]
+
+for key_name, workspace_name in workspace_keys:
     keys.extend(
         [
-            Key([mod], group.name, lazy.group[group.name].toscreen(), desc=f"Switch to {group.name}"),
+            Key([mod], key_name, lazy.group[workspace_name].toscreen(), desc=f"Switch to workspace {workspace_name}"),
             Key(
                 [mod, "shift"],
-                group.name,
-                lazy.window.togroup(group.name, switch_group=False),
-                desc=f"Send window to {group.name}",
+                key_name,
+                lazy.window.togroup(workspace_name, switch_group=False),
+                desc=f"Send window to workspace {workspace_name}",
             ),
         ]
     )
@@ -100,45 +119,88 @@ extension_defaults = widget_defaults.copy()
 
 screens = [
     Screen(
+        top=bar.Bar(
+            [
+                widget.TextBox(
+                    text=" o ",
+                    foreground="#ff5f57",
+                    fontsize=16,
+                    mouse_callbacks={"Button1": lazy.window.kill()},
+                ),
+                widget.TextBox(
+                    text=" o ",
+                    foreground="#ffbd2e",
+                    fontsize=16,
+                    mouse_callbacks={"Button1": lazy.window.toggle_minimize()},
+                ),
+                widget.TextBox(
+                    text=" o ",
+                    foreground="#28c840",
+                    fontsize=16,
+                    mouse_callbacks={"Button1": lazy.window.toggle_maximize()},
+                ),
+                widget.Spacer(length=12),
+                widget.WindowName(max_chars=80, foreground=settings["text"]),
+                widget.Spacer(),
+                widget.Clock(format="%a %I:%M %p"),
+            ],
+            settings["titlebar_height"],
+            background=settings["bar_background"],
+        ),
         bottom=bar.Bar(
             [
+                widget.Spacer(length=8),
                 widget.TextBox(
                     text=" Apps ",
                     foreground=settings["accent"],
                     fontsize=14,
                     mouse_callbacks={"Button1": lazy.spawn(settings["launcher_fullscreen"])},
                 ),
+                widget.Spacer(length=8),
+                widget.TextBox(
+                    text=" WS ",
+                    foreground=settings["text"],
+                    fontsize=14,
+                    mouse_callbacks={"Button1": lazy.spawn(settings["workspace_menu_cmd"])},
+                ),
+                widget.Spacer(length=8),
                 widget.TextBox(
                     text=" Files ",
                     foreground=settings["text"],
                     fontsize=14,
                     mouse_callbacks={"Button1": lazy.spawn(settings["file_manager"])},
                 ),
+                widget.Spacer(length=8),
                 widget.TextBox(
                     text=" Settings ",
                     foreground=settings["text"],
                     fontsize=14,
                     mouse_callbacks={"Button1": lazy.spawn("cde-settings")},
                 ),
-                widget.GroupBox(
-                    highlight_method="block",
-                    this_current_screen_border=settings["accent"],
-                    active=settings["text"],
-                    inactive="#565f89",
+                widget.Spacer(length=8),
+                widget.TextBox(
+                    text=" Term ",
+                    foreground=settings["text"],
+                    fontsize=14,
+                    mouse_callbacks={"Button1": lazy.spawn(terminal)},
                 ),
-                widget.TaskList(highlight_method="block", border=settings["accent"]),
+                widget.Spacer(length=12),
+                widget.WindowName(max_chars=60, foreground=settings["text"]),
                 widget.Spacer(),
                 widget.Systray(),
-                widget.Clock(format="%a %I:%M %p"),
+                widget.Spacer(length=8),
             ],
-            settings["bar_height"],
+            settings["dock_height"],
             background=settings["bar_background"],
+            opacity=0.92,
+            margin=[0, 10, 10, 10],
         ),
         background=settings["background"],
     )
 ]
 
 mouse = [
+    Drag([], "Button1", lazy.window.set_position_floating(), start=lazy.window.get_position()),
     Drag([mod], "Button1", lazy.window.set_position_floating(), start=lazy.window.get_position()),
     Drag([mod], "Button3", lazy.window.set_size_floating(), start=lazy.window.get_size()),
     Click([mod], "Button2", lazy.window.bring_to_front()),

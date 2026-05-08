@@ -12,40 +12,47 @@ SETTINGS_DIR = Path.home() / ".config" / "cde"
 SETTINGS_PATH = SETTINGS_DIR / "settings.json"
 ONBOARDING_DONE_PATH = SETTINGS_DIR / ".onboarding_complete"
 
-FIELDS = [
-    ("terminal", "Terminal command"),
-    ("launcher", "Launcher command"),
-    ("launcher_fullscreen", "Fullscreen launcher command"),
-    ("file_manager", "File manager command"),
-    ("accent", "Accent color"),
-    ("bar_background", "Bar background color"),
-    ("background", "Desktop background color"),
-]
-
 THEME_PRESETS = {
     "dark": {
         "accent": "#7aa2f7",
         "bar_background": "#1a1b26",
         "background": "#1f2335",
+        "text": "#c0caf5",
     },
     "light": {
         "accent": "#2f6feb",
         "bar_background": "#f2f4f8",
         "background": "#ffffff",
+        "text": "#202020",
     },
 }
 
 DEFAULTS = {
     "terminal": "kitty" if shutil.which("kitty") else "xterm",
+    "file_manager": "dolphin" if shutil.which("dolphin") else "xdg-open ~",
     "launcher": "rofi -show drun -modi drun,filebrowser",
     "launcher_fullscreen": "rofi -show drun -modi drun,filebrowser -fullscreen -show-icons",
-    "file_manager": "dolphin" if shutil.which("dolphin") else "xdg-open ~",
+    "workspace_menu_cmd": "cde-workspaces",
+    "theme": "dark",
+    "update_channel": "stable",
     "accent": THEME_PRESETS["dark"]["accent"],
     "bar_background": THEME_PRESETS["dark"]["bar_background"],
     "background": THEME_PRESETS["dark"]["background"],
-    "update_channel": "stable",
-    "theme": "dark",
+    "text": THEME_PRESETS["dark"]["text"],
 }
+
+BASIC_FIELDS = [
+    ("terminal", "Terminal app"),
+    ("file_manager", "File manager app"),
+]
+
+ADVANCED_FIELDS = [
+    ("launcher", "Quick launcher command (Super+Space)"),
+    ("launcher_fullscreen", "Fullscreen launcher command"),
+    ("workspace_menu_cmd", "Workspace menu command"),
+]
+
+THEME_KEYS = ("accent", "bar_background", "background", "text")
 
 
 def load_settings() -> dict:
@@ -58,9 +65,9 @@ def load_settings() -> dict:
         raise ValueError(f"Invalid CDE settings format in {SETTINGS_PATH}")
 
     settings = DEFAULTS.copy()
-    for key in settings:
+    for key, default in DEFAULTS.items():
         value = data.get(key)
-        if isinstance(value, str):
+        if isinstance(value, type(default)):
             settings[key] = value
     return settings
 
@@ -81,7 +88,8 @@ def apply_theme_preset(values: dict, theme: str) -> None:
     preset = THEME_PRESETS.get(theme)
     if preset is None:
         return
-    values.update(preset)
+    for key in THEME_KEYS:
+        values[key] = preset[key]
 
 
 def reload_cde() -> None:
@@ -139,11 +147,11 @@ def run_git(repo_path: Path, *args: str) -> subprocess.CompletedProcess:
     )
 
 
-def get_target_branch(update_channel: str) -> str:
-    return "main" if update_channel == "nightly" else "stable"
+def get_target_branch(channel: str) -> str:
+    return "main" if channel == "nightly" else "stable"
 
 
-def get_update_status(update_channel: str) -> tuple[str, Path | None, bool, str]:
+def get_update_status(channel: str) -> tuple[str, Path | None, bool, str]:
     repo_path = detect_repo_path()
     if repo_path is None:
         return (
@@ -153,7 +161,7 @@ def get_update_status(update_channel: str) -> tuple[str, Path | None, bool, str]
             "",
         )
 
-    target_branch = get_target_branch(update_channel)
+    target_branch = get_target_branch(channel)
     fetch_result = run_git(repo_path, "fetch", "--quiet", "origin")
     if fetch_result.returncode != 0:
         return (
@@ -168,8 +176,7 @@ def get_update_status(update_channel: str) -> tuple[str, Path | None, bool, str]
     remote_target = run_git(repo_path, "rev-parse", "--verify", target_ref)
     if remote_target.returncode != 0:
         return (
-            f"Channel '{update_channel}' requires remote branch "
-            f"'{target_branch}', which was not found.",
+            f"Channel '{channel}' requires remote branch '{target_branch}', which was not found.",
             repo_path,
             False,
             target_branch,
@@ -178,7 +185,7 @@ def get_update_status(update_channel: str) -> tuple[str, Path | None, bool, str]
     dirty = run_git(repo_path, "status", "--porcelain")
     if dirty.returncode == 0 and dirty.stdout.strip():
         return (
-            "Local repo has uncommitted changes. Commit/stash them before running Update CDE.",
+            "Local repo has uncommitted changes. Commit/stash before running Update CDE.",
             repo_path,
             False,
             target_branch,
@@ -199,9 +206,7 @@ def get_update_status(update_channel: str) -> tuple[str, Path | None, bool, str]
 
     if current_branch != target_branch:
         return (
-            "Update channel is "
-            f"'{update_channel}'. Update will switch branch from "
-            f"'{current_branch}' to '{target_branch}'.",
+            f"Update channel is '{channel}'. Update will switch branch to '{target_branch}'.",
             repo_path,
             True,
             target_branch,
@@ -223,7 +228,7 @@ def get_update_status(update_channel: str) -> tuple[str, Path | None, bool, str]
             target_branch,
         )
     return (
-        f"Local and origin/{target_branch} have diverged; resolve with git before updating.",
+        f"Local and origin/{target_branch} have diverged; resolve with git first.",
         repo_path,
         False,
         target_branch,
@@ -248,7 +253,6 @@ def launch_update_terminal(repo_path: Path, terminal_command: str, target_branch
         "echo; "
         "read -n 1 -s -r -p 'Update finished. Press any key to close...'"
     )
-
     subprocess.Popen(terminal_parts + ["-e", "bash", "-lc", update_script])
 
 
@@ -262,84 +266,114 @@ def main() -> None:
 
     root = Tk()
     root.title("CDE Settings")
-    root.geometry("680x560" if onboarding_mode else "680x500")
+    root.geometry("760x590" if onboarding_mode else "760x540")
     root.resizable(False, False)
 
     form = Frame(root, padx=14, pady=14)
     form.pack(fill="both", expand=True)
 
-    current_row = 0
+    row = 0
     if onboarding_mode:
-        Label(form, text="Welcome to CDE", anchor="w", font=("sans", 14, "bold")).grid(
-            row=current_row, column=0, columnspan=2, sticky="w", pady=(0, 4)
+        Label(form, text="Welcome to CDE", anchor="w", font=("sans", 15, "bold")).grid(
+            row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
         )
-        current_row += 1
+        row += 1
         Label(
             form,
-            text="Choose your defaults. You can change these any time in CDE Settings.",
+            text="Pick a theme and update channel. You can change everything later.",
             anchor="w",
             justify="left",
-        ).grid(row=current_row, column=0, columnspan=2, sticky="w", pady=(0, 12))
-        current_row += 1
+        ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(0, 12))
+        row += 1
 
     theme_var = StringVar(value=settings.get("theme", DEFAULTS["theme"]))
     channel_var = StringVar(value=settings.get("update_channel", DEFAULTS["update_channel"]))
-
-    Label(form, text="Theme", anchor="w").grid(row=current_row, column=0, sticky="w", pady=5)
-    theme_frame = Frame(form)
-    theme_frame.grid(row=current_row, column=1, sticky="w", pady=5)
-    Radiobutton(theme_frame, text="Dark", variable=theme_var, value="dark").pack(side="left")
-    Radiobutton(
-        theme_frame,
-        text="Light",
-        variable=theme_var,
-        value="light",
-    ).pack(side="left", padx=(12, 0))
-    current_row += 1
-
-    Label(form, text="Update channel", anchor="w").grid(
-        row=current_row,
-        column=0,
-        sticky="w",
-        pady=5,
-    )
-    channel_frame = Frame(form)
-    channel_frame.grid(row=current_row, column=1, sticky="w", pady=5)
-    Radiobutton(
-        channel_frame,
-        text="Stable",
-        variable=channel_var,
-        value="stable",
-    ).pack(side="left")
-    Radiobutton(
-        channel_frame,
-        text="Nightly",
-        variable=channel_var,
-        value="nightly",
-    ).pack(side="left", padx=(12, 0))
-    current_row += 1
-
-    current_row += 1
-
-    entries: dict[str, Entry] = {}
-    for row_offset, (key, label_text) in enumerate(FIELDS):
-        row = current_row + row_offset
-        Label(form, text=label_text, anchor="w").grid(row=row, column=0, sticky="w", pady=5)
-        entry = Entry(form, width=56)
-        entry.insert(0, settings[key])
-        entry.grid(row=row, column=1, sticky="ew", pady=5)
-        entries[key] = entry
-
-    form.columnconfigure(1, weight=1)
     update_status = StringVar(value="Update status: not checked")
 
+    Label(form, text="Theme", anchor="w").grid(row=row, column=0, sticky="w", pady=5)
+    theme_frame = Frame(form)
+    theme_frame.grid(row=row, column=1, sticky="w", pady=5)
+    Radiobutton(theme_frame, text="Dark", variable=theme_var, value="dark").pack(side="left")
+    Radiobutton(theme_frame, text="Light", variable=theme_var, value="light").pack(side="left", padx=(12, 0))
+    row += 1
+
+    Label(form, text="Update channel", anchor="w").grid(row=row, column=0, sticky="w", pady=5)
+    channel_frame = Frame(form)
+    channel_frame.grid(row=row, column=1, sticky="w", pady=5)
+    Radiobutton(channel_frame, text="Stable", variable=channel_var, value="stable").pack(side="left")
+    Radiobutton(channel_frame, text="Nightly", variable=channel_var, value="nightly").pack(side="left", padx=(12, 0))
+    row += 1
+
+    Label(
+        form,
+        text="Stable = origin/stable, Nightly = origin/main",
+        anchor="w",
+        justify="left",
+    ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(0, 10))
+    row += 1
+
+    basic_entries: dict[str, Entry] = {}
+    Label(form, text="Everyday settings", anchor="w", font=("sans", 11, "bold")).grid(
+        row=row, column=0, columnspan=2, sticky="w", pady=(0, 6)
+    )
+    row += 1
+    for key, label_text in BASIC_FIELDS:
+        Label(form, text=label_text, anchor="w").grid(row=row, column=0, sticky="w", pady=4)
+        entry = Entry(form, width=60)
+        entry.insert(0, settings.get(key, DEFAULTS[key]))
+        entry.grid(row=row, column=1, sticky="ew", pady=4)
+        basic_entries[key] = entry
+        row += 1
+
+    advanced_frame = Frame(form)
+    advanced_visible = StringVar(value="0")
+    advanced_entries: dict[str, Entry] = {}
+
+    Label(
+        advanced_frame,
+        text="Advanced (power-user commands)",
+        anchor="w",
+        font=("sans", 11, "bold"),
+    ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(8, 6))
+    adv_row = 1
+    for key, label_text in ADVANCED_FIELDS:
+        Label(advanced_frame, text=label_text, anchor="w").grid(row=adv_row, column=0, sticky="w", pady=4)
+        entry = Entry(advanced_frame, width=60)
+        entry.insert(0, settings.get(key, DEFAULTS[key]))
+        entry.grid(row=adv_row, column=1, sticky="ew", pady=4)
+        advanced_entries[key] = entry
+        adv_row += 1
+
+    advanced_frame.columnconfigure(1, weight=1)
+
+    advanced_row = row + 1
+
+    def toggle_advanced() -> None:
+        is_visible = advanced_visible.get() == "1"
+        if is_visible:
+            advanced_frame.grid_remove()
+            advanced_visible.set("0")
+            advanced_button.configure(text="Show Advanced")
+        else:
+            advanced_frame.grid(row=advanced_row, column=0, columnspan=2, sticky="ew")
+            advanced_visible.set("1")
+            advanced_button.configure(text="Hide Advanced")
+
+    advanced_button = Button(form, text="Show Advanced", command=toggle_advanced)
+    advanced_button.grid(row=row, column=0, sticky="w", pady=(10, 0))
+    row += 2
+
+    form.columnconfigure(1, weight=1)
+
     def collect_values() -> dict:
-        values = {k: v.get().strip() for k, v in entries.items()}
-        selected_theme = theme_var.get()
-        values["theme"] = selected_theme
+        values = settings.copy()
+        for key, entry in basic_entries.items():
+            values[key] = entry.get().strip()
+        for key, entry in advanced_entries.items():
+            values[key] = entry.get().strip()
+        values["theme"] = theme_var.get()
         values["update_channel"] = channel_var.get()
-        if onboarding_mode or selected_theme != settings.get("theme", DEFAULTS["theme"]):
-            apply_theme_preset(values, selected_theme)
+        apply_theme_preset(values, theme_var.get())
         return values
 
     def save(reload_now: bool) -> None:
@@ -359,22 +393,22 @@ def main() -> None:
 
     def check_updates() -> tuple[Path | None, bool, str]:
         channel = channel_var.get()
-        status, repo_path, update_available, target_branch = get_update_status(channel)
+        status, repo_path, available, branch = get_update_status(channel)
         update_status.set(f"Update status: {status}")
-        return repo_path, update_available, target_branch
+        return repo_path, available, branch
 
     def run_update() -> None:
-        repo_path, update_available, target_branch = check_updates()
+        repo_path, available, branch = check_updates()
         if repo_path is None:
             return
-        if not update_available:
+        if not available:
             messagebox.showinfo("CDE Settings", "No update action needed right now.")
             return
 
         values = collect_values()
         terminal_command = values.get("terminal", "").strip() or DEFAULTS["terminal"]
         try:
-            launch_update_terminal(repo_path, terminal_command, target_branch)
+            launch_update_terminal(repo_path, terminal_command, branch)
         except (RuntimeError, FileNotFoundError) as err:
             messagebox.showerror("CDE Settings", str(err))
             return
@@ -384,30 +418,14 @@ def main() -> None:
             "Enter your sudo password there if prompted.",
         )
 
-    actions_row = current_row + len(FIELDS) + 1
-    Button(form, text="Save", command=lambda: save(False)).grid(
-        row=actions_row,
-        column=0,
-        pady=14,
-        sticky="w",
-    )
-    Button(form, text="Save + Reload", command=lambda: save(True)).grid(
-        row=actions_row, column=1, sticky="e", pady=14
-    )
-    Button(form, text="Check for Updates", command=check_updates).grid(
-        row=actions_row + 1,
-        column=0,
-        pady=8,
-        sticky="w",
-    )
-    Button(form, text="Update CDE", command=run_update).grid(
-        row=actions_row + 1,
-        column=1,
-        pady=8,
-        sticky="e",
-    )
-    Label(form, textvariable=update_status, anchor="w", wraplength=640, justify="left").grid(
-        row=actions_row + 2, column=0, columnspan=2, sticky="w"
+    Button(form, text="Save", command=lambda: save(False)).grid(row=row, column=0, pady=14, sticky="w")
+    Button(form, text="Save + Reload", command=lambda: save(True)).grid(row=row, column=1, pady=14, sticky="e")
+    row += 1
+    Button(form, text="Check for Updates", command=check_updates).grid(row=row, column=0, pady=8, sticky="w")
+    Button(form, text="Update CDE", command=run_update).grid(row=row, column=1, pady=8, sticky="e")
+    row += 1
+    Label(form, textvariable=update_status, anchor="w", wraplength=730, justify="left").grid(
+        row=row, column=0, columnspan=2, sticky="w"
     )
 
     root.mainloop()

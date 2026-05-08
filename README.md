@@ -33,15 +33,25 @@ Default keybinds from the shipped CDE config:
 - `Super + Space`: rofi app/file search launcher
 - `Super + A`: fullscreen app launcher (rofi)
 - `Super + E`: file manager (dolphin by default)
+- `Super + 1..9,0`: switch workspaces 1..10
+- `Super + Shift + 1..9,0`: send focused window to workspace 1..10
+- `Super + \``: workspace picker menu
 - `Super + ,`: CDE settings GUI
 - `Super + F`: fullscreen toggle
 
 Settings app highlights:
 
+- Simplified "Everyday settings" plus a hideable "Advanced" section
 - Update channel switch (`stable` or `nightly`)
 - `Check for Updates` and `Update CDE` actions
 - One-time onboarding with welcome screen, theme choice, and update-channel choice
 - `nightly` tracks `origin/main`; `stable` tracks `origin/stable`
+
+Desktop highlights:
+
+- macOS-style window controls in the top-left (red close, yellow minimize, green maximize)
+- Dock-style bottom bar with launcher icons
+- Single workspace icon opens a workspace picker (up to 10 workspaces)
 
 
 
