@@ -183,13 +183,7 @@ def get_update_status(channel: str) -> tuple[str, Path | None, bool, str]:
         )
 
     dirty = run_git(repo_path, "status", "--porcelain")
-    if dirty.returncode == 0 and dirty.stdout.strip():
-        return (
-            "Local repo has uncommitted changes. Commit/stash before running Update CDE.",
-            repo_path,
-            False,
-            target_branch,
-        )
+    local_dirty = dirty.returncode == 0 and bool(dirty.stdout.strip())
 
     local_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip()
     remote_head = remote_target.stdout.strip()
@@ -206,7 +200,14 @@ def get_update_status(channel: str) -> tuple[str, Path | None, bool, str]:
 
     if current_branch != target_branch:
         return (
-            f"Update channel is '{channel}'. Update will switch branch to '{target_branch}'.",
+            f"Update channel is '{channel}'. Update will switch branch to '{target_branch}' and overwrite local changes.",
+            repo_path,
+            True,
+            target_branch,
+        )
+    if local_head == remote_head and local_dirty:
+        return (
+            "Remote is current, but local changes exist. Update will reset to origin and discard local changes.",
             repo_path,
             True,
             target_branch,
@@ -222,15 +223,15 @@ def get_update_status(channel: str) -> tuple[str, Path | None, bool, str]:
         )
     if remote_head == merge_base:
         return (
-            f"Local branch is ahead of origin/{target_branch}.",
+            f"Local branch is ahead of origin/{target_branch}. Update will reset to origin/{target_branch}.",
             repo_path,
-            False,
+            True,
             target_branch,
         )
     return (
-        f"Local and origin/{target_branch} have diverged; resolve with git first.",
+        f"Local and origin/{target_branch} have diverged. Update will reset to origin/{target_branch}.",
         repo_path,
-        False,
+        True,
         target_branch,
     )
 
@@ -242,13 +243,11 @@ def launch_update_terminal(repo_path: Path, terminal_command: str, target_branch
 
     update_script = (
         f"set -e; cd {shlex.quote(str(repo_path))}; "
-        "if [ -n \"$(git status --porcelain)\" ]; then "
-        "echo 'Repo has local changes. Commit or stash first.'; "
-        "read -n 1 -s -r -p 'Press any key to close...'; exit 1; fi; "
         "git fetch --quiet origin; "
         f"git checkout {shlex.quote(target_branch)} 2>/dev/null || "
         f"git checkout -b {shlex.quote(target_branch)} origin/{shlex.quote(target_branch)}; "
-        f"git pull --ff-only origin {shlex.quote(target_branch)}; "
+        f"git reset --hard origin/{shlex.quote(target_branch)}; "
+        "git clean -fd; "
         "./setup.sh; "
         "echo; "
         "read -n 1 -s -r -p 'Update finished. Press any key to close...'"
@@ -403,6 +402,13 @@ def main() -> None:
             return
         if not available:
             messagebox.showinfo("CDE Settings", "No update action needed right now.")
+            return
+
+        proceed = messagebox.askyesno(
+            "CDE Settings",
+            "Update CDE will force-sync to the remote branch and discard local repo changes. Continue?",
+        )
+        if not proceed:
             return
 
         values = collect_values()

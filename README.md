@@ -46,6 +46,7 @@ Settings app highlights:
 - `Check for Updates` and `Update CDE` actions
 - One-time onboarding with welcome screen, theme choice, and update-channel choice
 - `nightly` tracks `origin/main`; `stable` tracks `origin/stable`
+- `Update CDE` force-syncs to selected remote channel and discards local repo changes
 
 Desktop highlights:
 
