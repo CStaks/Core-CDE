@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 import json
+import os
+import shlex
 import shutil
 import subprocess
+import sys
 from pathlib import Path
-from tkinter import Button, Entry, Frame, Label, Tk, messagebox
+from tkinter import Button, Entry, Frame, Label, Radiobutton, StringVar, Tk, messagebox
 
 SETTINGS_DIR = Path.home() / ".config" / "cde"
 SETTINGS_PATH = SETTINGS_DIR / "settings.json"
+ONBOARDING_DONE_PATH = SETTINGS_DIR / ".onboarding_complete"
 
 FIELDS = [
     ("terminal", "Terminal command"),
@@ -18,14 +22,29 @@ FIELDS = [
     ("background", "Desktop background color"),
 ]
 
+THEME_PRESETS = {
+    "dark": {
+        "accent": "#7aa2f7",
+        "bar_background": "#1a1b26",
+        "background": "#1f2335",
+    },
+    "light": {
+        "accent": "#2f6feb",
+        "bar_background": "#f2f4f8",
+        "background": "#ffffff",
+    },
+}
+
 DEFAULTS = {
     "terminal": "kitty" if shutil.which("kitty") else "xterm",
     "launcher": "rofi -show drun -modi drun,filebrowser",
     "launcher_fullscreen": "rofi -show drun -modi drun,filebrowser -fullscreen -show-icons",
     "file_manager": "dolphin" if shutil.which("dolphin") else "xdg-open ~",
-    "accent": "#7aa2f7",
-    "bar_background": "#1a1b26",
-    "background": "#1f2335",
+    "accent": THEME_PRESETS["dark"]["accent"],
+    "bar_background": THEME_PRESETS["dark"]["bar_background"],
+    "background": THEME_PRESETS["dark"]["background"],
+    "update_channel": "stable",
+    "theme": "dark",
 }
 
 
@@ -53,38 +72,281 @@ def save_settings(values: dict) -> None:
         f.write("\n")
 
 
+def mark_onboarding_complete() -> None:
+    SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+    ONBOARDING_DONE_PATH.write_text("done\n", encoding="utf-8")
+
+
+def apply_theme_preset(values: dict, theme: str) -> None:
+    preset = THEME_PRESETS.get(theme)
+    if preset is None:
+        return
+    values.update(preset)
+
+
 def reload_cde() -> None:
     command = ["qtile", "cmd-obj", "-o", "cmd", "-f", "reload_config"]
     if not shutil.which("qtile"):
-        command = ["python3", "-m", "libqtile.scripts.main", "cmd-obj", "-o", "cmd", "-f", "reload_config"]
+        command = [
+            "python3",
+            "-m",
+            "libqtile.scripts.main",
+            "cmd-obj",
+            "-o",
+            "cmd",
+            "-f",
+            "reload_config",
+        ]
     completed = subprocess.run(command, capture_output=True, text=True, check=False)
     if completed.returncode != 0:
         raise RuntimeError(completed.stderr.strip() or "Failed to reload CDE config.")
 
 
+def detect_repo_path() -> Path | None:
+    candidates: list[Path] = []
+    env_repo = os.environ.get("CDE_REPO_PATH")
+    if env_repo:
+        candidates.append(Path(env_repo).expanduser())
+
+    script_path = Path(__file__).resolve()
+    candidates.extend([script_path.parent, *script_path.parents])
+    candidates.extend(
+        [
+            Path.cwd(),
+            Path.home() / "Core-CDE",
+            Path.home() / "core-cde",
+            Path.home() / "CStaks" / "Core-CDE",
+        ]
+    )
+
+    seen: set[Path] = set()
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        if (resolved / ".git").exists():
+            return resolved
+    return None
+
+
+def run_git(repo_path: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["git", "-C", str(repo_path), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def get_target_branch(update_channel: str) -> str:
+    return "main" if update_channel == "nightly" else "stable"
+
+
+def get_update_status(update_channel: str) -> tuple[str, Path | None, bool, str]:
+    repo_path = detect_repo_path()
+    if repo_path is None:
+        return (
+            "No Core-CDE git checkout found. Set CDE_REPO_PATH to your repo path.",
+            None,
+            False,
+            "",
+        )
+
+    target_branch = get_target_branch(update_channel)
+    fetch_result = run_git(repo_path, "fetch", "--quiet", "origin")
+    if fetch_result.returncode != 0:
+        return (
+            "Could not fetch updates for "
+            f"{repo_path} ({fetch_result.stderr.strip() or 'network/remote error'}).",
+            repo_path,
+            False,
+            target_branch,
+        )
+
+    target_ref = f"origin/{target_branch}"
+    remote_target = run_git(repo_path, "rev-parse", "--verify", target_ref)
+    if remote_target.returncode != 0:
+        return (
+            f"Channel '{update_channel}' requires remote branch "
+            f"'{target_branch}', which was not found.",
+            repo_path,
+            False,
+            target_branch,
+        )
+
+    dirty = run_git(repo_path, "status", "--porcelain")
+    if dirty.returncode == 0 and dirty.stdout.strip():
+        return (
+            "Local repo has uncommitted changes. Commit/stash them before running Update CDE.",
+            repo_path,
+            False,
+            target_branch,
+        )
+
+    local_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip()
+    remote_head = remote_target.stdout.strip()
+    merge_base = run_git(repo_path, "merge-base", "HEAD", target_ref).stdout.strip()
+    current_branch = run_git(repo_path, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+
+    if not local_head or not remote_head or not merge_base:
+        return (
+            f"Could not compare local and remote revisions for {repo_path}.",
+            repo_path,
+            False,
+            target_branch,
+        )
+
+    if current_branch != target_branch:
+        return (
+            "Update channel is "
+            f"'{update_channel}'. Update will switch branch from "
+            f"'{current_branch}' to '{target_branch}'.",
+            repo_path,
+            True,
+            target_branch,
+        )
+    if local_head == remote_head:
+        return f"Up to date on {target_branch} ({repo_path}).", repo_path, False, target_branch
+    if local_head == merge_base:
+        return (
+            f"Update available: local branch is behind origin/{target_branch}.",
+            repo_path,
+            True,
+            target_branch,
+        )
+    if remote_head == merge_base:
+        return (
+            f"Local branch is ahead of origin/{target_branch}.",
+            repo_path,
+            False,
+            target_branch,
+        )
+    return (
+        f"Local and origin/{target_branch} have diverged; resolve with git before updating.",
+        repo_path,
+        False,
+        target_branch,
+    )
+
+
+def launch_update_terminal(repo_path: Path, terminal_command: str, target_branch: str) -> None:
+    terminal_parts = shlex.split(terminal_command)
+    if not terminal_parts:
+        raise RuntimeError("Terminal command is empty.")
+
+    update_script = (
+        f"set -e; cd {shlex.quote(str(repo_path))}; "
+        "if [ -n \"$(git status --porcelain)\" ]; then "
+        "echo 'Repo has local changes. Commit or stash first.'; "
+        "read -n 1 -s -r -p 'Press any key to close...'; exit 1; fi; "
+        "git fetch --quiet origin; "
+        f"git checkout {shlex.quote(target_branch)} 2>/dev/null || "
+        f"git checkout -b {shlex.quote(target_branch)} origin/{shlex.quote(target_branch)}; "
+        f"git pull --ff-only origin {shlex.quote(target_branch)}; "
+        "./setup.sh; "
+        "echo; "
+        "read -n 1 -s -r -p 'Update finished. Press any key to close...'"
+    )
+
+    subprocess.Popen(terminal_parts + ["-e", "bash", "-lc", update_script])
+
+
 def main() -> None:
     settings = load_settings()
+    onboarding_mode = (
+        os.environ.get("CDE_ONBOARDING") == "1"
+        or "--onboarding" in sys.argv
+        or not ONBOARDING_DONE_PATH.exists()
+    )
+
     root = Tk()
     root.title("CDE Settings")
-    root.geometry("520x400")
+    root.geometry("680x560" if onboarding_mode else "680x500")
     root.resizable(False, False)
 
     form = Frame(root, padx=14, pady=14)
     form.pack(fill="both", expand=True)
 
+    current_row = 0
+    if onboarding_mode:
+        Label(form, text="Welcome to CDE", anchor="w", font=("sans", 14, "bold")).grid(
+            row=current_row, column=0, columnspan=2, sticky="w", pady=(0, 4)
+        )
+        current_row += 1
+        Label(
+            form,
+            text="Choose your defaults. You can change these any time in CDE Settings.",
+            anchor="w",
+            justify="left",
+        ).grid(row=current_row, column=0, columnspan=2, sticky="w", pady=(0, 12))
+        current_row += 1
+
+    theme_var = StringVar(value=settings.get("theme", DEFAULTS["theme"]))
+    channel_var = StringVar(value=settings.get("update_channel", DEFAULTS["update_channel"]))
+
+    Label(form, text="Theme", anchor="w").grid(row=current_row, column=0, sticky="w", pady=5)
+    theme_frame = Frame(form)
+    theme_frame.grid(row=current_row, column=1, sticky="w", pady=5)
+    Radiobutton(theme_frame, text="Dark", variable=theme_var, value="dark").pack(side="left")
+    Radiobutton(
+        theme_frame,
+        text="Light",
+        variable=theme_var,
+        value="light",
+    ).pack(side="left", padx=(12, 0))
+    current_row += 1
+
+    Label(form, text="Update channel", anchor="w").grid(
+        row=current_row,
+        column=0,
+        sticky="w",
+        pady=5,
+    )
+    channel_frame = Frame(form)
+    channel_frame.grid(row=current_row, column=1, sticky="w", pady=5)
+    Radiobutton(
+        channel_frame,
+        text="Stable",
+        variable=channel_var,
+        value="stable",
+    ).pack(side="left")
+    Radiobutton(
+        channel_frame,
+        text="Nightly",
+        variable=channel_var,
+        value="nightly",
+    ).pack(side="left", padx=(12, 0))
+    current_row += 1
+
+    current_row += 1
+
     entries: dict[str, Entry] = {}
-    for row, (key, label) in enumerate(FIELDS):
-        Label(form, text=label, anchor="w").grid(row=row, column=0, sticky="w", pady=5)
-        entry = Entry(form, width=52)
+    for row_offset, (key, label_text) in enumerate(FIELDS):
+        row = current_row + row_offset
+        Label(form, text=label_text, anchor="w").grid(row=row, column=0, sticky="w", pady=5)
+        entry = Entry(form, width=56)
         entry.insert(0, settings[key])
         entry.grid(row=row, column=1, sticky="ew", pady=5)
         entries[key] = entry
 
     form.columnconfigure(1, weight=1)
+    update_status = StringVar(value="Update status: not checked")
+
+    def collect_values() -> dict:
+        values = {k: v.get().strip() for k, v in entries.items()}
+        selected_theme = theme_var.get()
+        values["theme"] = selected_theme
+        values["update_channel"] = channel_var.get()
+        if onboarding_mode or selected_theme != settings.get("theme", DEFAULTS["theme"]):
+            apply_theme_preset(values, selected_theme)
+        return values
 
     def save(reload_now: bool) -> None:
-        values = {k: v.get().strip() for k, v in entries.items()}
+        values = collect_values()
         save_settings(values)
+        if onboarding_mode:
+            mark_onboarding_complete()
         if reload_now:
             try:
                 reload_cde()
@@ -95,9 +357,57 @@ def main() -> None:
             return
         messagebox.showinfo("CDE Settings", "Saved CDE settings.")
 
-    Button(form, text="Save", command=lambda: save(False)).grid(row=len(FIELDS) + 1, column=0, pady=14)
+    def check_updates() -> tuple[Path | None, bool, str]:
+        channel = channel_var.get()
+        status, repo_path, update_available, target_branch = get_update_status(channel)
+        update_status.set(f"Update status: {status}")
+        return repo_path, update_available, target_branch
+
+    def run_update() -> None:
+        repo_path, update_available, target_branch = check_updates()
+        if repo_path is None:
+            return
+        if not update_available:
+            messagebox.showinfo("CDE Settings", "No update action needed right now.")
+            return
+
+        values = collect_values()
+        terminal_command = values.get("terminal", "").strip() or DEFAULTS["terminal"]
+        try:
+            launch_update_terminal(repo_path, terminal_command, target_branch)
+        except (RuntimeError, FileNotFoundError) as err:
+            messagebox.showerror("CDE Settings", str(err))
+            return
+        messagebox.showinfo(
+            "CDE Settings",
+            f"Started {channel_var.get()} update in a terminal. "
+            "Enter your sudo password there if prompted.",
+        )
+
+    actions_row = current_row + len(FIELDS) + 1
+    Button(form, text="Save", command=lambda: save(False)).grid(
+        row=actions_row,
+        column=0,
+        pady=14,
+        sticky="w",
+    )
     Button(form, text="Save + Reload", command=lambda: save(True)).grid(
-        row=len(FIELDS) + 1, column=1, sticky="e", pady=14
+        row=actions_row, column=1, sticky="e", pady=14
+    )
+    Button(form, text="Check for Updates", command=check_updates).grid(
+        row=actions_row + 1,
+        column=0,
+        pady=8,
+        sticky="w",
+    )
+    Button(form, text="Update CDE", command=run_update).grid(
+        row=actions_row + 1,
+        column=1,
+        pady=8,
+        sticky="e",
+    )
+    Label(form, textvariable=update_status, anchor="w", wraplength=640, justify="left").grid(
+        row=actions_row + 2, column=0, columnspan=2, sticky="w"
     )
 
     root.mainloop()

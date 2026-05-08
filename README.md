@@ -36,12 +36,26 @@ Default keybinds from the shipped CDE config:
 - `Super + ,`: CDE settings GUI
 - `Super + F`: fullscreen toggle
 
+Settings app highlights:
+
+- Update channel switch (`stable` or `nightly`)
+- `Check for Updates` and `Update CDE` actions
+- One-time onboarding with welcome screen, theme choice, and update-channel choice
+- `nightly` tracks `origin/main`; `stable` tracks `origin/stable`
+
+
 
 Session commands after install:
 
 - `cde start` (start CDE directly on X11)
 - `cde session` (run the full CDE session launcher)
 - `cde settings` (open the CDE settings app)
+
+## 📦 Release flows
+
+- `Nightly Source Release` is automatic on pushes to `main` and publishes a `nightly` (can be unstable)
+- `Manual Publish Packages` is manual (`workflow_dispatch`) and is typically more stable than nightly
+- Manual PyPI publish has guardrails: it requires running from `main`, explicit confirmation (`confirm_stable_release=publish-stable`), and preflight build/twine/import checks before publishing.
 
 ## 🤝 Contributing
 See CONTRIBUTING.md

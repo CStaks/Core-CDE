@@ -1,0 +1,37 @@
+name: Nightly Source Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  nightly-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Build source package
+        run: |
+          python -m pip install build
+          python -m build --sdist .
+
+      - name: Publish nightly GitHub release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: nightly
+          name: Nightly
+          prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          artifacts: dist/*.tar.gz
+          body: |
+            Nightly source build from `${{ github.sha }}`.

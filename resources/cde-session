@@ -45,6 +45,12 @@ else
     echo "CDE warning: dunst is not installed; notifications disabled." >&2
 fi
 
+if [ "${CDE_SKIP_ONBOARDING:-0}" != "1" ] && [ -n "${HOME:-}" ] && [ ! -f "${HOME}/.config/cde/.onboarding_complete" ]; then
+    if command -v cde-settings >/dev/null 2>&1; then
+        CDE_ONBOARDING=1 cde-settings --onboarding >/dev/null 2>&1 &
+    fi
+fi
+
 set +e
 run_cde start -b x11 "${config_args[@]}"
 status=$?
