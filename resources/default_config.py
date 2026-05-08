@@ -8,15 +8,22 @@ from libqtile.lazy import lazy
 
 SETTINGS_PATH = Path.home() / ".config" / "cde" / "settings.json"
 
+
 def default_terminal() -> str:
     return "kitty" if shutil.which("kitty") else "xterm"
+
+
+def default_file_manager() -> str:
+    return "dolphin" if shutil.which("dolphin") else "xdg-open ~"
 
 
 DEFAULT_SETTINGS = {
     "mod": "mod4",
     "terminal": default_terminal(),
     "launcher": "rofi -show drun -modi drun,filebrowser",
-    "bar_height": 30,
+    "launcher_fullscreen": "rofi -show drun -modi drun,filebrowser -fullscreen -show-icons",
+    "file_manager": default_file_manager(),
+    "bar_height": 34,
     "background": "#1f2335",
     "bar_background": "#1a1b26",
     "accent": "#7aa2f7",
@@ -50,6 +57,8 @@ terminal = settings["terminal"]
 keys = [
     Key([mod], "q", lazy.spawn(terminal), desc="Launch terminal"),
     Key([mod], "space", lazy.spawn(settings["launcher"]), desc="Open launcher and file search"),
+    Key([mod], "a", lazy.spawn(settings["launcher_fullscreen"]), desc="Open fullscreen app launcher"),
+    Key([mod], "e", lazy.spawn(settings["file_manager"]), desc="Open file manager"),
     Key([mod], "comma", lazy.spawn("cde-settings"), desc="Open CDE settings"),
     Key([mod], "w", lazy.window.kill(), desc="Close focused window"),
     Key([mod], "f", lazy.window.toggle_fullscreen(), desc="Toggle fullscreen"),
@@ -91,20 +100,36 @@ extension_defaults = widget_defaults.copy()
 
 screens = [
     Screen(
-        top=bar.Bar(
+        bottom=bar.Bar(
             [
-                widget.TextBox(" CDE ", foreground=settings["accent"], fontsize=14),
+                widget.TextBox(
+                    text=" Apps ",
+                    foreground=settings["accent"],
+                    fontsize=14,
+                    mouse_callbacks={"Button1": lazy.spawn(settings["launcher_fullscreen"])},
+                ),
+                widget.TextBox(
+                    text=" Files ",
+                    foreground=settings["text"],
+                    fontsize=14,
+                    mouse_callbacks={"Button1": lazy.spawn(settings["file_manager"])},
+                ),
+                widget.TextBox(
+                    text=" Settings ",
+                    foreground=settings["text"],
+                    fontsize=14,
+                    mouse_callbacks={"Button1": lazy.spawn("cde-settings")},
+                ),
                 widget.GroupBox(
-                    highlight_method="line",
+                    highlight_method="block",
                     this_current_screen_border=settings["accent"],
                     active=settings["text"],
                     inactive="#565f89",
                 ),
                 widget.TaskList(highlight_method="block", border=settings["accent"]),
                 widget.Spacer(),
-                widget.Prompt(),
                 widget.Systray(),
-                widget.Clock(format="%a %Y-%m-%d %I:%M %p"),
+                widget.Clock(format="%a %I:%M %p"),
             ],
             settings["bar_height"],
             background=settings["bar_background"],

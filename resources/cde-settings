@@ -11,6 +11,8 @@ SETTINGS_PATH = SETTINGS_DIR / "settings.json"
 FIELDS = [
     ("terminal", "Terminal command"),
     ("launcher", "Launcher command"),
+    ("launcher_fullscreen", "Fullscreen launcher command"),
+    ("file_manager", "File manager command"),
     ("accent", "Accent color"),
     ("bar_background", "Bar background color"),
     ("background", "Desktop background color"),
@@ -19,6 +21,8 @@ FIELDS = [
 DEFAULTS = {
     "terminal": "kitty" if shutil.which("kitty") else "xterm",
     "launcher": "rofi -show drun -modi drun,filebrowser",
+    "launcher_fullscreen": "rofi -show drun -modi drun,filebrowser -fullscreen -show-icons",
+    "file_manager": "dolphin" if shutil.which("dolphin") else "xdg-open ~",
     "accent": "#7aa2f7",
     "bar_background": "#1a1b26",
     "background": "#1f2335",
@@ -62,7 +66,7 @@ def main() -> None:
     settings = load_settings()
     root = Tk()
     root.title("CDE Settings")
-    root.geometry("520x320")
+    root.geometry("520x400")
     root.resizable(False, False)
 
     form = Frame(root, padx=14, pady=14)

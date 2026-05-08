@@ -25,13 +25,13 @@ install_deps() {
 
     if [ "$PKG_MANAGER" = "apt" ]; then
         sudo apt-get update
-        sudo apt-get install -y picom dunst rofi flatpak python3-tk kitty lightdm lightdm-gtk-greeter
+        sudo apt-get install -y picom dunst rofi dolphin flatpak python3-tk kitty lightdm lightdm-gtk-greeter
     elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y picom dunst rofi flatpak python3-tkinter kitty lightdm
+        sudo dnf install -y picom dunst rofi dolphin flatpak python3-tkinter kitty lightdm
     elif [ "$PKG_MANAGER" = "pacman" ]; then
-        sudo pacman -Sy --noconfirm picom dunst rofi flatpak tk kitty lightdm lightdm-gtk-greeter
+        sudo pacman -Sy --noconfirm picom dunst rofi dolphin flatpak tk kitty lightdm lightdm-gtk-greeter
     elif [ "$PKG_MANAGER" = "zypper" ]; then
-        sudo zypper --non-interactive install picom dunst rofi flatpak python3-tk kitty lightdm
+        sudo zypper --non-interactive install picom dunst rofi dolphin flatpak python3-tk kitty lightdm
     fi
 }
 

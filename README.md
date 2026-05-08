@@ -12,7 +12,7 @@ CStaks Desktop Environment (CDE) is a Linux-focused desktop environment layer bu
 
 ## 🚀 Getting Started
 
-you must have git installed
+You must have git installed.
 
 1. Clone the repository, run:
    ```bash
@@ -23,13 +23,16 @@ you must have git installed
    ```bash
    ./setup.sh
    ```
-3. restart your device
+   Run as your normal user (not `sudo`)
+3. Restart your device.
 
 
 Default keybinds from the shipped CDE config:
 
 - `Super + Q`: terminal
-- `Super + Space`: rofi launcher 
+- `Super + Space`: rofi app/file search launcher
+- `Super + A`: fullscreen app launcher (rofi)
+- `Super + E`: file manager (dolphin by default)
 - `Super + ,`: CDE settings GUI
 - `Super + F`: fullscreen toggle
 
