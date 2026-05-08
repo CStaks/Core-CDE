@@ -31,7 +31,6 @@ DEFAULT_SETTINGS = {
     "text": "#c0caf5",
     "border_normal": "#292e42",
     "border_width": 2,
-    "titlebar_height": 28,
     "dock_height": 54,
 }
 
@@ -119,34 +118,6 @@ extension_defaults = widget_defaults.copy()
 
 screens = [
     Screen(
-        top=bar.Bar(
-            [
-                widget.TextBox(
-                    text=" o ",
-                    foreground="#ff5f57",
-                    fontsize=16,
-                    mouse_callbacks={"Button1": lazy.window.kill()},
-                ),
-                widget.TextBox(
-                    text=" o ",
-                    foreground="#ffbd2e",
-                    fontsize=16,
-                    mouse_callbacks={"Button1": lazy.window.toggle_minimize()},
-                ),
-                widget.TextBox(
-                    text=" o ",
-                    foreground="#28c840",
-                    fontsize=16,
-                    mouse_callbacks={"Button1": lazy.window.toggle_maximize()},
-                ),
-                widget.Spacer(length=12),
-                widget.WindowName(max_chars=80, foreground=settings["text"]),
-                widget.Spacer(),
-                widget.Clock(format="%a %I:%M %p"),
-            ],
-            settings["titlebar_height"],
-            background=settings["bar_background"],
-        ),
         bottom=bar.Bar(
             [
                 widget.Spacer(length=8),
@@ -200,7 +171,6 @@ screens = [
 ]
 
 mouse = [
-    Drag([], "Button1", lazy.window.set_position_floating(), start=lazy.window.get_position()),
     Drag([mod], "Button1", lazy.window.set_position_floating(), start=lazy.window.get_position()),
     Drag([mod], "Button3", lazy.window.set_size_floating(), start=lazy.window.get_size()),
     Click([mod], "Button2", lazy.window.bring_to_front()),

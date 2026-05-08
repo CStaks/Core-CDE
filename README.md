@@ -50,7 +50,6 @@ Settings app highlights:
 
 Desktop highlights:
 
-- macOS-style window controls in the top-left (red close, yellow minimize, green maximize)
 - Dock-style bottom bar with launcher icons
 - Single workspace icon opens a workspace picker (up to 10 workspaces)
 
