@@ -1,8 +1,8 @@
 `cde.desktop`:
-Adds the CDE session entry to display managers (`/usr/share/xsessions`).
+Adds the CDE session entry to display managers (`/usr/share/wayland-sessions`).
 
 `cde-session`:
-Session launcher that starts optional desktop services (`picom`, `dunst`) and runs CDE in X11 mode with `/etc/cde/default_config.py`.
+Session launcher that starts optional desktop services (`picom`, `dunst`) and runs CDE in Wayland mode with `/etc/cde/default_config.py`.
 
 `cde`:
 Convenience launcher (`cde start`, `cde session`, `cde settings`) used by the desktop entry and terminal usage.

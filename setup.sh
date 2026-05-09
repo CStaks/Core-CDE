@@ -71,6 +71,19 @@ user-session=cde
 EOF
 }
 
+install_session_entry() {
+    echo "Installing CDE display-manager session entry..."
+    # Remove stale CDE entries from older installs so the login menu has one CDE option.
+    sudo rm -f \
+        /usr/share/xsessions/cde.desktop \
+        /usr/local/share/xsessions/cde.desktop \
+        /usr/share/wayland-sessions/cde-wayland.desktop \
+        /usr/local/share/wayland-sessions/cde-wayland.desktop
+
+    sudo mkdir -p /usr/share/wayland-sessions
+    sudo install -m 0644 resources/cde.desktop /usr/share/wayland-sessions/cde.desktop
+}
+
 install_python_package() {
     if python3 -m pip install .; then
         return
@@ -95,8 +108,7 @@ install_python_package
 echo "Installing CDE session and defaults..."
 sudo mkdir -p /etc/cde
 sudo install -m 0644 resources/default_config.py /etc/cde/default_config.py
-sudo mkdir -p /usr/share/wayland-sessions
-sudo install -m 0644 resources/cde.desktop /usr/share/wayland-sessions/cde.desktop
+install_session_entry
 sudo install -m 0644 resources/99-cde.rules /etc/udev/rules.d/99-cde.rules
 sudo install -m 0755 resources/cde /usr/local/bin/cde
 sudo install -m 0755 resources/cde-session /usr/local/bin/cde-session

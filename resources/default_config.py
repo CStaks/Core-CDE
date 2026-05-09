@@ -1,4 +1,5 @@
 import json
+import os
 import shutil
 from pathlib import Path
 
@@ -55,6 +56,7 @@ def load_settings() -> dict:
 settings = load_settings()
 mod = settings["mod"]
 terminal = settings["terminal"]
+is_wayland_session = os.environ.get("XDG_SESSION_TYPE") == "wayland"
 
 keys = [
     Key([mod], "q", lazy.spawn(terminal), desc="Launch terminal"),
@@ -126,57 +128,60 @@ widget_defaults = dict(
 )
 extension_defaults = widget_defaults.copy()
 
+bar_widgets = [
+    widget.Spacer(length=10),
+    widget.TextBox(
+        text=" ⠿ ",
+        foreground=settings["accent"],
+        fontsize=20,
+        mouse_callbacks={"Button1": lazy.spawn(settings["launcher_fullscreen"])},
+    ),
+    widget.Spacer(length=8),
+    widget.TextBox(
+        text=" ◈ ",
+        foreground=settings["text"],
+        fontsize=18,
+        mouse_callbacks={"Button1": lazy.spawn(settings["workspace_menu_cmd"])},
+    ),
+    widget.Spacer(length=8),
+    widget.Sep(
+        linewidth=2,
+        size_percent=65,
+        foreground=settings["border_normal"],
+    ),
+    widget.Spacer(length=12),
+    widget.TaskList(
+        icon_size=28,
+        txt_minimized="",
+        txt_maximized="",
+        txt_floating="",
+        txt_focused="",
+        txt_urgent="",
+        parse_text=lambda _: "",
+        spacing=8,
+        rounded=True,
+        border=settings["accent"],
+        unfocused_border=settings["border_normal"],
+        highlight_method="block",
+    ),
+    widget.Spacer(length=12),
+    widget.Sep(
+        linewidth=2,
+        size_percent=65,
+        foreground=settings["border_normal"],
+    ),
+    widget.Spacer(length=8),
+]
+if not is_wayland_session:
+    bar_widgets.append(widget.Systray())
+    bar_widgets.append(widget.Spacer(length=8))
+bar_widgets.append(widget.Clock(format="%I:%M %p"))
+bar_widgets.append(widget.Spacer(length=8))
+
 screens = [
     Screen(
         bottom=bar.Bar(
-            [
-                widget.Spacer(length=10),
-                widget.TextBox(
-                    text=" ⠿ ",
-                    foreground=settings["accent"],
-                    fontsize=20,
-                    mouse_callbacks={"Button1": lazy.spawn(settings["launcher_fullscreen"])},
-                ),
-                widget.Spacer(length=8),
-                widget.TextBox(
-                    text=" ◈ ",
-                    foreground=settings["text"],
-                    fontsize=18,
-                    mouse_callbacks={"Button1": lazy.spawn(settings["workspace_menu_cmd"])},
-                ),
-                widget.Spacer(length=8),
-                widget.Sep(
-                    linewidth=2,
-                    size_percent=65,
-                    foreground=settings["border_normal"],
-                ),
-                widget.Spacer(length=12),
-                widget.TaskList(
-                    icon_size=28,
-                    txt_minimized="",
-                    txt_maximized="",
-                    txt_floating="",
-                    txt_focused="",
-                    txt_urgent="",
-                    parse_text=lambda _: "",
-                    spacing=8,
-                    rounded=True,
-                    border=settings["accent"],
-                    unfocused_border=settings["border_normal"],
-                    highlight_method="block",
-                ),
-                widget.Spacer(length=12),
-                widget.Sep(
-                    linewidth=2,
-                    size_percent=65,
-                    foreground=settings["border_normal"],
-                ),
-                widget.Spacer(length=8),
-                widget.Systray(),
-                widget.Spacer(length=8),
-                widget.Clock(format="%I:%M %p"),
-                widget.Spacer(length=8),
-            ],
+            bar_widgets,
             settings["dock_height"],
             background=settings["bar_background"],
             opacity=0.88,
