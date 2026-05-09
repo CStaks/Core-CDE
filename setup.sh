@@ -50,7 +50,7 @@ configure_login_manager() {
     echo "Configuring LightDM as default login manager..."
 
     if command -v systemctl >/dev/null 2>&1; then
-        sudo systemctl enable lightdm.service
+        sudo systemctl enable --force lightdm.service
         sudo systemctl set-default graphical.target
     fi
 
