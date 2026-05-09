@@ -250,7 +250,7 @@ def launch_update_terminal(repo_path: Path, terminal_command: str, target_branch
         f"git checkout -b {shlex.quote(target_branch)} origin/{shlex.quote(target_branch)}; "
         f"git reset --hard origin/{shlex.quote(target_branch)}; "
         "git clean -fd; "
-        "if CDE_SKIP_DEPS=1 bash ./setup.sh; then "
+        "if CDE_SKIP_FLATPAK=1 bash ./setup.sh; then "
         "echo 'CDE update finished successfully.'; "
         "else "
         "status=$?; "

@@ -230,6 +230,18 @@ def get_wlr_log_level() -> int:
     return lib.WLR_SILENT
 
 
+def init_wlr_logging() -> None:
+    qw_log_init = getattr(lib, "qw_log_init", None)
+    if callable(qw_log_init):
+        qw_log_init(get_wlr_log_level(), lib.log_cb)
+        return
+
+    logger.warning(
+        "Wayland backend logging init is unavailable (qw_log_init is not callable). "
+        "Continuing without wlroots log callback."
+    )
+
+
 class Core(base.Core):
     supports_restarting: bool = False
     idle_inhibitor_manager: IdleInhibitorManager
@@ -240,7 +252,7 @@ class Core(base.Core):
         self.focused_internal: base.Internal | None = None
 
         """Setup the Wayland core backend"""
-        lib.qw_log_init(get_wlr_log_level(), lib.log_cb)
+        init_wlr_logging()
         self.qw = lib.qw_server_create()
         if not self.qw:
             sys.exit(1)
@@ -282,7 +294,7 @@ class Core(base.Core):
 
     def update_backend_log_level(self) -> None:
         """Update the wlr log level based on Qtile's log level."""
-        lib.qw_log_init(get_wlr_log_level(), lib.log_cb)
+        init_wlr_logging()
 
     def clear_focus(self) -> None:
         """Clear focus so that there is no focused window"""

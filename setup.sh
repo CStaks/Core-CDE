@@ -27,7 +27,14 @@ install_deps() {
         sudo apt-get update
         sudo apt-get install -y picom dunst rofi dolphin flatpak python3-tk kitty lightdm lightdm-gtk-greeter
     elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y picom dunst rofi dolphin flatpak python3-tkinter kitty lightdm
+        dnf_common=(
+            picom dunst rofi dolphin flatpak python3-tkinter kitty lightdm
+            gcc python3-devel cairo-devel libinput-devel
+            wayland-devel wayland-protocols-devel wayland-utils
+        )
+        if ! sudo dnf install -y "${dnf_common[@]}" wlroots0.19-devel; then
+            sudo dnf install -y "${dnf_common[@]}" wlroots-devel
+        fi
     elif [ "$PKG_MANAGER" = "pacman" ]; then
         sudo pacman -Sy --noconfirm picom dunst rofi dolphin flatpak tk kitty lightdm lightdm-gtk-greeter
     elif [ "$PKG_MANAGER" = "zypper" ]; then
@@ -85,11 +92,12 @@ install_session_entry() {
 }
 
 install_python_package() {
-    if python3 -m pip install .; then
+    python3 -m pip uninstall -y cstaks-cde >/dev/null 2>&1 || true
+    if python3 -m pip install --no-cache-dir --force-reinstall --no-binary :all: --config-settings=backend=wayland .; then
         return
     fi
 
-    if python3 -m pip install --break-system-packages .; then
+    if python3 -m pip install --break-system-packages --no-cache-dir --force-reinstall --no-binary :all: --config-settings=backend=wayland .; then
         return
     fi
 
@@ -99,6 +107,9 @@ install_python_package() {
 
 if [ "${CDE_SKIP_DEPS:-0}" != "1" ]; then
     install_deps
+fi
+
+if [ "${CDE_SKIP_FLATPAK:-0}" != "1" ]; then
     install_flatpak_gui
 fi
 
