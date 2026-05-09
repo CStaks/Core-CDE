@@ -3,7 +3,7 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-3DA639?style=flat-square&logo=apache)
 ![Python](https://img.shields.io/badge/python-3.x-blue)
 ![Platform](https://img.shields.io/badge/platform-linux-lightgrey)
-![Display](https://img.shields.io/badge/display-X11-orange)
+![Display](https://img.shields.io/badge/display-Wayland-orange)
 ![Layout](https://img.shields.io/badge/layout-floating-blueviolet)
 
 
@@ -45,7 +45,7 @@ Default keybinds from the shipped CDE config:
 
 Settings app highlights:
 
-- Simplified "Everyday settings" plus a hideable "Advanced" section
+- Sectioned settings layout: `General`, `Appearance`, `Launchers`, `Updates`, `Advanced`
 - Update channel switch (`stable` or `nightly`)
 - `Check for Updates` and `Update CDE` actions
 - One-time onboarding with welcome screen, theme choice, and update-channel choice
@@ -61,7 +61,7 @@ Desktop highlights:
 
 Session commands after install:
 
-- `cde start` (start CDE directly on X11)
+- `cde start` (start CDE directly on Wayland)
 - `cde session` (run the full CDE session launcher)
 - `cde settings` (open the CDE settings app)
 

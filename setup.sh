@@ -90,7 +90,8 @@ install_python_package
 echo "Installing CDE session and defaults..."
 sudo mkdir -p /etc/cde
 sudo install -m 0644 resources/default_config.py /etc/cde/default_config.py
-sudo install -m 0644 resources/cde.desktop /usr/share/xsessions/cde.desktop
+sudo mkdir -p /usr/share/wayland-sessions
+sudo install -m 0644 resources/cde.desktop /usr/share/wayland-sessions/cde.desktop
 sudo install -m 0644 resources/99-cde.rules /etc/udev/rules.d/99-cde.rules
 sudo install -m 0755 resources/cde /usr/local/bin/cde
 sudo install -m 0755 resources/cde-session /usr/local/bin/cde-session

@@ -31,7 +31,9 @@ run_cde() {
     fi
 }
 
-if command -v picom >/dev/null 2>&1; then
+if [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
+    echo "CDE info: skipping picom on Wayland session."
+elif command -v picom >/dev/null 2>&1; then
     if ! picom -b; then
         echo "CDE warning: picom failed to start; compositor disabled." >&2
     fi
@@ -52,7 +54,7 @@ if [ "${CDE_SKIP_ONBOARDING:-0}" != "1" ] && [ -n "${HOME:-}" ] && [ ! -f "${HOM
 fi
 
 set +e
-run_cde start -b x11 "${config_args[@]}"
+run_cde start -b wayland "${config_args[@]}"
 status=$?
 set -e
 

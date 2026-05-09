@@ -31,7 +31,7 @@ DEFAULT_SETTINGS = {
     "text": "#c0caf5",
     "border_normal": "#292e42",
     "border_width": 2,
-    "dock_height": 54,
+    "dock_height": 58,
 }
 
 
@@ -59,7 +59,12 @@ terminal = settings["terminal"]
 keys = [
     Key([mod], "q", lazy.spawn(terminal), desc="Launch terminal"),
     Key([mod], "space", lazy.spawn(settings["launcher"]), desc="Open launcher and file search"),
-    Key([mod], "a", lazy.spawn(settings["launcher_fullscreen"]), desc="Open fullscreen app launcher"),
+    Key(
+        [mod],
+        "a",
+        lazy.spawn(settings["launcher_fullscreen"]),
+        desc="Open fullscreen app launcher",
+    ),
     Key([mod], "e", lazy.spawn(settings["file_manager"]), desc="Open file manager"),
     Key([mod], "grave", lazy.spawn(settings["workspace_menu_cmd"]), desc="Workspace picker"),
     Key([mod], "comma", lazy.spawn("cde-settings"), desc="Open CDE settings"),
@@ -89,7 +94,12 @@ workspace_keys = [
 for key_name, workspace_name in workspace_keys:
     keys.extend(
         [
-            Key([mod], key_name, lazy.group[workspace_name].toscreen(), desc=f"Switch to workspace {workspace_name}"),
+            Key(
+                [mod],
+                key_name,
+                lazy.group[workspace_name].toscreen(),
+                desc=f"Switch to workspace {workspace_name}",
+            ),
             Key(
                 [mod, "shift"],
                 key_name,
@@ -120,51 +130,57 @@ screens = [
     Screen(
         bottom=bar.Bar(
             [
-                widget.Spacer(length=8),
+                widget.Spacer(length=10),
                 widget.TextBox(
-                    text=" Apps ",
+                    text=" ⠿ ",
                     foreground=settings["accent"],
-                    fontsize=14,
+                    fontsize=20,
                     mouse_callbacks={"Button1": lazy.spawn(settings["launcher_fullscreen"])},
                 ),
                 widget.Spacer(length=8),
                 widget.TextBox(
-                    text=" WS ",
+                    text=" ◈ ",
                     foreground=settings["text"],
-                    fontsize=14,
+                    fontsize=18,
                     mouse_callbacks={"Button1": lazy.spawn(settings["workspace_menu_cmd"])},
                 ),
                 widget.Spacer(length=8),
-                widget.TextBox(
-                    text=" Files ",
-                    foreground=settings["text"],
-                    fontsize=14,
-                    mouse_callbacks={"Button1": lazy.spawn(settings["file_manager"])},
-                ),
-                widget.Spacer(length=8),
-                widget.TextBox(
-                    text=" Settings ",
-                    foreground=settings["text"],
-                    fontsize=14,
-                    mouse_callbacks={"Button1": lazy.spawn("cde-settings")},
-                ),
-                widget.Spacer(length=8),
-                widget.TextBox(
-                    text=" Term ",
-                    foreground=settings["text"],
-                    fontsize=14,
-                    mouse_callbacks={"Button1": lazy.spawn(terminal)},
+                widget.Sep(
+                    linewidth=2,
+                    size_percent=65,
+                    foreground=settings["border_normal"],
                 ),
                 widget.Spacer(length=12),
-                widget.WindowName(max_chars=60, foreground=settings["text"]),
-                widget.Spacer(),
+                widget.TaskList(
+                    icon_size=28,
+                    txt_minimized="",
+                    txt_maximized="",
+                    txt_floating="",
+                    txt_focused="",
+                    txt_urgent="",
+                    parse_text=lambda _: "",
+                    spacing=8,
+                    rounded=True,
+                    border=settings["accent"],
+                    unfocused_border=settings["border_normal"],
+                    highlight_method="block",
+                ),
+                widget.Spacer(length=12),
+                widget.Sep(
+                    linewidth=2,
+                    size_percent=65,
+                    foreground=settings["border_normal"],
+                ),
+                widget.Spacer(length=8),
                 widget.Systray(),
+                widget.Spacer(length=8),
+                widget.Clock(format="%I:%M %p"),
                 widget.Spacer(length=8),
             ],
             settings["dock_height"],
             background=settings["bar_background"],
-            opacity=0.92,
-            margin=[0, 10, 10, 10],
+            opacity=0.88,
+            margin=[0, 18, 12, 18],
         ),
         background=settings["background"],
     )

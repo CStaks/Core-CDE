@@ -24,7 +24,7 @@ cmd="${1:-start}"
 case "$cmd" in
     start)
         shift || true
-        run_cde start -b x11 "${config_args[@]}" "$@"
+        run_cde start -b wayland "${config_args[@]}" "$@"
         ;;
     session)
         shift || true

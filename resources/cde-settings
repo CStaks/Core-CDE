@@ -5,8 +5,10 @@ import shlex
 import shutil
 import subprocess
 import sys
+import threading
 from pathlib import Path
-from tkinter import Button, Entry, Frame, Label, Radiobutton, StringVar, Tk, messagebox
+from tkinter import StringVar, Tk, messagebox
+from tkinter import ttk
 
 SETTINGS_DIR = Path.home() / ".config" / "cde"
 SETTINGS_PATH = SETTINGS_DIR / "settings.json"
@@ -18,12 +20,14 @@ THEME_PRESETS = {
         "bar_background": "#1a1b26",
         "background": "#1f2335",
         "text": "#c0caf5",
+        "border_normal": "#292e42",
     },
     "light": {
         "accent": "#2f6feb",
         "bar_background": "#f2f4f8",
         "background": "#ffffff",
         "text": "#202020",
+        "border_normal": "#c0c5cf",
     },
 }
 
@@ -39,20 +43,27 @@ DEFAULTS = {
     "bar_background": THEME_PRESETS["dark"]["bar_background"],
     "background": THEME_PRESETS["dark"]["background"],
     "text": THEME_PRESETS["dark"]["text"],
+    "border_normal": THEME_PRESETS["dark"]["border_normal"],
+    "border_width": 2,
+    "dock_height": 58,
 }
 
-BASIC_FIELDS = [
-    ("terminal", "Terminal app"),
-    ("file_manager", "File manager app"),
-]
+STRING_KEYS = {
+    "terminal",
+    "file_manager",
+    "launcher",
+    "launcher_fullscreen",
+    "workspace_menu_cmd",
+    "theme",
+    "update_channel",
+    "accent",
+    "bar_background",
+    "background",
+    "text",
+    "border_normal",
+}
 
-ADVANCED_FIELDS = [
-    ("launcher", "Quick launcher command (Super+Space)"),
-    ("launcher_fullscreen", "Fullscreen launcher command"),
-    ("workspace_menu_cmd", "Workspace menu command"),
-]
-
-THEME_KEYS = ("accent", "bar_background", "background", "text")
+INT_KEYS = {"border_width", "dock_height"}
 
 
 def load_settings() -> dict:
@@ -82,14 +93,6 @@ def save_settings(values: dict) -> None:
 def mark_onboarding_complete() -> None:
     SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
     ONBOARDING_DONE_PATH.write_text("done\n", encoding="utf-8")
-
-
-def apply_theme_preset(values: dict, theme: str) -> None:
-    preset = THEME_PRESETS.get(theme)
-    if preset is None:
-        return
-    for key in THEME_KEYS:
-        values[key] = preset[key]
 
 
 def reload_cde() -> None:
@@ -184,7 +187,6 @@ def get_update_status(channel: str) -> tuple[str, Path | None, bool, str]:
 
     dirty = run_git(repo_path, "status", "--porcelain")
     local_dirty = dirty.returncode == 0 and bool(dirty.stdout.strip())
-
     local_head = run_git(repo_path, "rev-parse", "HEAD").stdout.strip()
     remote_head = remote_target.stdout.strip()
     merge_base = run_git(repo_path, "merge-base", "HEAD", target_ref).stdout.strip()
@@ -265,118 +267,139 @@ def main() -> None:
 
     root = Tk()
     root.title("CDE Settings")
-    root.geometry("760x590" if onboarding_mode else "760x540")
+    root.geometry("860x620")
     root.resizable(False, False)
 
-    form = Frame(root, padx=14, pady=14)
-    form.pack(fill="both", expand=True)
+    root_frame = ttk.Frame(root, padding=14)
+    root_frame.pack(fill="both", expand=True)
 
-    row = 0
     if onboarding_mode:
-        Label(form, text="Welcome to CDE", anchor="w", font=("sans", 15, "bold")).grid(
-            row=row, column=0, columnspan=2, sticky="w", pady=(0, 4)
-        )
-        row += 1
-        Label(
-            form,
-            text="Pick a theme and update channel. You can change everything later.",
-            anchor="w",
-            justify="left",
-        ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(0, 12))
-        row += 1
+        ttk.Label(root_frame, text="Welcome to CDE", font=("sans", 15, "bold")).pack(anchor="w")
+        ttk.Label(
+            root_frame,
+            text="Use these sections to configure your desktop. Start with General and Appearance.",
+        ).pack(anchor="w", pady=(2, 10))
 
+    notebook = ttk.Notebook(root_frame)
+    notebook.pack(fill="both", expand=True)
+
+    general_tab = ttk.Frame(notebook, padding=12)
+    appearance_tab = ttk.Frame(notebook, padding=12)
+    launcher_tab = ttk.Frame(notebook, padding=12)
+    updates_tab = ttk.Frame(notebook, padding=12)
+    advanced_tab = ttk.Frame(notebook, padding=12)
+
+    notebook.add(general_tab, text="General")
+    notebook.add(appearance_tab, text="Appearance")
+    notebook.add(launcher_tab, text="Launchers")
+    notebook.add(updates_tab, text="Updates")
+    notebook.add(advanced_tab, text="Advanced")
+
+    values_var = {key: StringVar(value=str(settings.get(key, DEFAULTS[key]))) for key in DEFAULTS}
     theme_var = StringVar(value=settings.get("theme", DEFAULTS["theme"]))
     channel_var = StringVar(value=settings.get("update_channel", DEFAULTS["update_channel"]))
     update_status = StringVar(value="Update status: not checked")
 
-    Label(form, text="Theme", anchor="w").grid(row=row, column=0, sticky="w", pady=5)
-    theme_frame = Frame(form)
-    theme_frame.grid(row=row, column=1, sticky="w", pady=5)
-    Radiobutton(theme_frame, text="Dark", variable=theme_var, value="dark").pack(side="left")
-    Radiobutton(theme_frame, text="Light", variable=theme_var, value="light").pack(side="left", padx=(12, 0))
-    row += 1
+    ui_state = {"busy": False, "update_result": None}
 
-    Label(form, text="Update channel", anchor="w").grid(row=row, column=0, sticky="w", pady=5)
-    channel_frame = Frame(form)
-    channel_frame.grid(row=row, column=1, sticky="w", pady=5)
-    Radiobutton(channel_frame, text="Stable", variable=channel_var, value="stable").pack(side="left")
-    Radiobutton(channel_frame, text="Nightly", variable=channel_var, value="nightly").pack(side="left", padx=(12, 0))
-    row += 1
+    def add_labeled_entry(parent: ttk.Frame, row: int, label: str, key: str, width: int = 52) -> None:
+        ttk.Label(parent, text=label).grid(row=row, column=0, sticky="w", pady=6)
+        ttk.Entry(parent, textvariable=values_var[key], width=width).grid(row=row, column=1, sticky="ew", pady=6)
 
-    Label(
-        form,
-        text="Stable = origin/stable, Nightly = origin/main",
-        anchor="w",
-        justify="left",
-    ).grid(row=row, column=0, columnspan=2, sticky="w", pady=(0, 10))
-    row += 1
+    general_tab.columnconfigure(1, weight=1)
+    add_labeled_entry(general_tab, 0, "Terminal app", "terminal")
+    add_labeled_entry(general_tab, 1, "File manager app", "file_manager")
+    ttk.Label(general_tab, text="Update channel").grid(row=2, column=0, sticky="w", pady=6)
+    channel_frame = ttk.Frame(general_tab)
+    channel_frame.grid(row=2, column=1, sticky="w", pady=6)
+    ttk.Radiobutton(channel_frame, text="Stable", variable=channel_var, value="stable").pack(side="left")
+    ttk.Radiobutton(channel_frame, text="Nightly", variable=channel_var, value="nightly").pack(side="left", padx=(12, 0))
 
-    basic_entries: dict[str, Entry] = {}
-    Label(form, text="Everyday settings", anchor="w", font=("sans", 11, "bold")).grid(
-        row=row, column=0, columnspan=2, sticky="w", pady=(0, 6)
+    appearance_tab.columnconfigure(1, weight=1)
+    ttk.Label(appearance_tab, text="Theme").grid(row=0, column=0, sticky="w", pady=6)
+    theme_frame = ttk.Frame(appearance_tab)
+    theme_frame.grid(row=0, column=1, sticky="w", pady=6)
+    ttk.Radiobutton(theme_frame, text="Dark", variable=theme_var, value="dark").pack(side="left")
+    ttk.Radiobutton(theme_frame, text="Light", variable=theme_var, value="light").pack(side="left", padx=(12, 0))
+    add_labeled_entry(appearance_tab, 1, "Accent color", "accent")
+    add_labeled_entry(appearance_tab, 2, "Dock background color", "bar_background")
+    add_labeled_entry(appearance_tab, 3, "Desktop background color", "background")
+    add_labeled_entry(appearance_tab, 4, "Primary text color", "text")
+    add_labeled_entry(appearance_tab, 5, "Border color", "border_normal")
+
+    launcher_tab.columnconfigure(1, weight=1)
+    add_labeled_entry(launcher_tab, 0, "Quick launcher command (Super+Space)", "launcher")
+    add_labeled_entry(launcher_tab, 1, "Fullscreen launcher command", "launcher_fullscreen")
+    add_labeled_entry(launcher_tab, 2, "Workspace menu command", "workspace_menu_cmd")
+
+    updates_tab.columnconfigure(0, weight=1)
+    ttk.Label(
+        updates_tab,
+        text="Update CDE force-syncs to remote and discards local repo changes.",
+        wraplength=760,
+    ).grid(row=0, column=0, sticky="w", pady=(0, 10))
+
+    update_buttons = ttk.Frame(updates_tab)
+    update_buttons.grid(row=1, column=0, sticky="w")
+    check_btn = ttk.Button(update_buttons, text="Check for Updates")
+    update_btn = ttk.Button(update_buttons, text="Update CDE")
+    check_btn.pack(side="left")
+    update_btn.pack(side="left", padx=(10, 0))
+
+    ttk.Label(updates_tab, textvariable=update_status, wraplength=760).grid(
+        row=2, column=0, sticky="w", pady=(10, 0)
     )
-    row += 1
-    for key, label_text in BASIC_FIELDS:
-        Label(form, text=label_text, anchor="w").grid(row=row, column=0, sticky="w", pady=4)
-        entry = Entry(form, width=60)
-        entry.insert(0, settings.get(key, DEFAULTS[key]))
-        entry.grid(row=row, column=1, sticky="ew", pady=4)
-        basic_entries[key] = entry
-        row += 1
 
-    advanced_frame = Frame(form)
-    advanced_visible = StringVar(value="0")
-    advanced_entries: dict[str, Entry] = {}
+    advanced_tab.columnconfigure(1, weight=1)
+    add_labeled_entry(advanced_tab, 0, "Window border width", "border_width")
+    add_labeled_entry(advanced_tab, 1, "Dock height", "dock_height")
 
-    Label(
-        advanced_frame,
-        text="Advanced (power-user commands)",
-        anchor="w",
-        font=("sans", 11, "bold"),
-    ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(8, 6))
-    adv_row = 1
-    for key, label_text in ADVANCED_FIELDS:
-        Label(advanced_frame, text=label_text, anchor="w").grid(row=adv_row, column=0, sticky="w", pady=4)
-        entry = Entry(advanced_frame, width=60)
-        entry.insert(0, settings.get(key, DEFAULTS[key]))
-        entry.grid(row=adv_row, column=1, sticky="ew", pady=4)
-        advanced_entries[key] = entry
-        adv_row += 1
+    def apply_theme_preset() -> None:
+        preset = THEME_PRESETS.get(theme_var.get())
+        if preset is None:
+            return
+        for key, value in preset.items():
+            values_var[key].set(value)
 
-    advanced_frame.columnconfigure(1, weight=1)
-
-    advanced_row = row + 1
-
-    def toggle_advanced() -> None:
-        is_visible = advanced_visible.get() == "1"
-        if is_visible:
-            advanced_frame.grid_remove()
-            advanced_visible.set("0")
-            advanced_button.configure(text="Show Advanced")
-        else:
-            advanced_frame.grid(row=advanced_row, column=0, columnspan=2, sticky="ew")
-            advanced_visible.set("1")
-            advanced_button.configure(text="Hide Advanced")
-
-    advanced_button = Button(form, text="Show Advanced", command=toggle_advanced)
-    advanced_button.grid(row=row, column=0, sticky="w", pady=(10, 0))
-    row += 2
-
-    form.columnconfigure(1, weight=1)
+    ttk.Button(appearance_tab, text="Apply Theme Preset Colors", command=apply_theme_preset).grid(
+        row=6, column=1, sticky="w", pady=(10, 0)
+    )
 
     def collect_values() -> dict:
-        values = settings.copy()
-        for key, entry in basic_entries.items():
-            values[key] = entry.get().strip()
-        for key, entry in advanced_entries.items():
-            values[key] = entry.get().strip()
+        values: dict[str, object] = {}
+        for key in STRING_KEYS:
+            values[key] = values_var[key].get().strip()
+        for key in INT_KEYS:
+            raw = values_var[key].get().strip()
+            try:
+                parsed = int(raw)
+            except ValueError as err:
+                raise RuntimeError(f"{key} must be a number.") from err
+            if parsed <= 0:
+                raise RuntimeError(f"{key} must be greater than 0.")
+            values[key] = parsed
+
         values["theme"] = theme_var.get()
         values["update_channel"] = channel_var.get()
-        apply_theme_preset(values, theme_var.get())
         return values
 
+    def set_busy(value: bool) -> None:
+        ui_state["busy"] = value
+        state = "disabled" if value else "normal"
+        check_btn.configure(state=state)
+        update_btn.configure(state=state)
+        save_btn.configure(state=state)
+        save_reload_btn.configure(state=state)
+        defaults_btn.configure(state=state)
+        root.configure(cursor="watch" if value else "")
+
     def save(reload_now: bool) -> None:
-        values = collect_values()
+        try:
+            values = collect_values()
+        except RuntimeError as err:
+            messagebox.showerror("CDE Settings", str(err))
+            return
+
         save_settings(values)
         if onboarding_mode:
             mark_onboarding_complete()
@@ -390,15 +413,34 @@ def main() -> None:
             return
         messagebox.showinfo("CDE Settings", "Saved CDE settings.")
 
-    def check_updates() -> tuple[Path | None, bool, str]:
-        channel = channel_var.get()
-        status, repo_path, available, branch = get_update_status(channel)
-        update_status.set(f"Update status: {status}")
-        return repo_path, available, branch
+    def check_updates_async() -> None:
+        if ui_state["busy"]:
+            return
+        set_busy(True)
+        update_status.set("Update status: checking...")
+
+        def worker() -> None:
+            status, repo_path, available, branch = get_update_status(channel_var.get())
+
+            def done() -> None:
+                set_busy(False)
+                update_status.set(f"Update status: {status}")
+                ui_state["update_result"] = (repo_path, available, branch)
+
+            root.after(0, done)
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def run_update() -> None:
-        repo_path, available, branch = check_updates()
+        result = ui_state.get("update_result")
+        if result is None:
+            check_updates_async()
+            messagebox.showinfo("CDE Settings", "Checking update status first. Click Update CDE again in a moment.")
+            return
+
+        repo_path, available, branch = result
         if repo_path is None:
+            messagebox.showerror("CDE Settings", "No repository found for updates.")
             return
         if not available:
             messagebox.showinfo("CDE Settings", "No update action needed right now.")
@@ -411,28 +453,35 @@ def main() -> None:
         if not proceed:
             return
 
-        values = collect_values()
-        terminal_command = values.get("terminal", "").strip() or DEFAULTS["terminal"]
+        terminal_cmd = values_var["terminal"].get().strip() or DEFAULTS["terminal"]
         try:
-            launch_update_terminal(repo_path, terminal_command, branch)
+            launch_update_terminal(repo_path, terminal_cmd, branch)
         except (RuntimeError, FileNotFoundError) as err:
             messagebox.showerror("CDE Settings", str(err))
             return
         messagebox.showinfo(
             "CDE Settings",
-            f"Started {channel_var.get()} update in a terminal. "
-            "Enter your sudo password there if prompted.",
+            f"Started {channel_var.get()} update in a terminal. Enter your sudo password there if prompted.",
         )
 
-    Button(form, text="Save", command=lambda: save(False)).grid(row=row, column=0, pady=14, sticky="w")
-    Button(form, text="Save + Reload", command=lambda: save(True)).grid(row=row, column=1, pady=14, sticky="e")
-    row += 1
-    Button(form, text="Check for Updates", command=check_updates).grid(row=row, column=0, pady=8, sticky="w")
-    Button(form, text="Update CDE", command=run_update).grid(row=row, column=1, pady=8, sticky="e")
-    row += 1
-    Label(form, textvariable=update_status, anchor="w", wraplength=730, justify="left").grid(
-        row=row, column=0, columnspan=2, sticky="w"
-    )
+    def restore_defaults() -> None:
+        for key, value in DEFAULTS.items():
+            values_var[key].set(str(value))
+        theme_var.set(DEFAULTS["theme"])
+        channel_var.set(DEFAULTS["update_channel"])
+        update_status.set("Update status: defaults restored (not saved yet).")
+
+    check_btn.configure(command=check_updates_async)
+    update_btn.configure(command=run_update)
+
+    footer = ttk.Frame(root_frame)
+    footer.pack(fill="x", pady=(10, 0))
+    defaults_btn = ttk.Button(footer, text="Restore Defaults", command=restore_defaults)
+    save_btn = ttk.Button(footer, text="Save", command=lambda: save(False))
+    save_reload_btn = ttk.Button(footer, text="Save + Reload", command=lambda: save(True))
+    defaults_btn.pack(side="left")
+    save_reload_btn.pack(side="right")
+    save_btn.pack(side="right", padx=(0, 10))
 
     root.mainloop()
 
