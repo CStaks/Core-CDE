@@ -14,12 +14,16 @@ CStaks Desktop Environment (CDE) is a Linux-focused desktop environment layer bu
 
 You must have git installed.
 
-1. Clone the repository, run:
+1. Clone the repository and enter the directory, run:
    ```bash
-   git clone https://github.com/CStaks/Core-CDE   
+   git clone https://github.com/CStaks/Core-CDE
+   cd Core-CDE
    ```
-
-2. From this repository, run:
+2.1. Make the setup file executable, run:
+   ```bash
+   chmod +x setup.sh
+   ```
+2.2. From this repository, run:
    ```bash
    ./setup.sh
    ```
