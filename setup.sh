@@ -38,7 +38,12 @@ install_deps() {
 install_flatpak_gui() {
     echo "Setting up Flatpak app store GUI..."
     sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-    sudo flatpak install -y flathub io.github.flattool.Warehouse
+    if sudo flatpak install -y flathub io.github.flattool.Warehouse; then
+        return
+    fi
+
+    echo "Flatpak install failed. Retrying without static deltas (lower disk usage)..."
+    sudo flatpak install -y --no-static-deltas flathub io.github.flattool.Warehouse
 }
 
 configure_login_manager() {
