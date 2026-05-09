@@ -75,10 +75,10 @@ install_session_entry() {
     echo "Installing CDE display-manager session entry..."
     # Remove stale CDE entries from older installs so the login menu has one CDE option.
     sudo rm -f \
-        /usr/share/xsessions/cde.desktop \
-        /usr/local/share/xsessions/cde.desktop \
-        /usr/share/wayland-sessions/cde-wayland.desktop \
-        /usr/local/share/wayland-sessions/cde-wayland.desktop
+        /usr/share/xsessions/cde*.desktop \
+        /usr/local/share/xsessions/cde*.desktop \
+        /usr/share/wayland-sessions/cde*.desktop \
+        /usr/local/share/wayland-sessions/cde*.desktop
 
     sudo mkdir -p /usr/share/wayland-sessions
     sudo install -m 0644 resources/cde.desktop /usr/share/wayland-sessions/cde.desktop

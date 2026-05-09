@@ -31,15 +31,12 @@ run_cde() {
     fi
 }
 
-if [ "${XDG_SESSION_TYPE:-}" = "wayland" ]; then
-    echo "CDE info: skipping picom on Wayland session."
-elif command -v picom >/dev/null 2>&1; then
-    if ! picom -b; then
-        echo "CDE warning: picom failed to start; compositor disabled." >&2
-    fi
-else
-    echo "CDE warning: picom is not installed; compositor disabled." >&2
-fi
+start_wayland() {
+    echo "CDE info: starting Qtile Wayland backend."
+    run_cde start -b wayland "${config_args[@]}"
+}
+
+echo "CDE info: Wayland-only session; picom is disabled."
 
 if command -v dunst >/dev/null 2>&1; then
     dunst >/dev/null 2>&1 &
@@ -54,12 +51,14 @@ if [ "${CDE_SKIP_ONBOARDING:-0}" != "1" ] && [ -n "${HOME:-}" ] && [ ! -f "${HOM
 fi
 
 set +e
-run_cde start -b wayland "${config_args[@]}"
+start_wayland
 status=$?
 set -e
 
 if [ "${status}" -ne 0 ]; then
     echo "CDE error: qtile exited with status ${status}."
+    echo "CDE error: CDE is configured for Wayland-only mode (no X11 fallback)."
+    echo "CDE error: check ${log_dir}/session.log for full traceback."
 fi
 
 exit "${status}"
