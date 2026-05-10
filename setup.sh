@@ -89,9 +89,39 @@ install_session_entry() {
 
     sudo mkdir -p /usr/share/wayland-sessions
     sudo install -m 0644 resources/cde.desktop /usr/share/wayland-sessions/cde.desktop
+    if ! sudo test -f /usr/share/wayland-sessions/cde.desktop; then
+        echo "Failed to install /usr/share/wayland-sessions/cde.desktop." >&2
+        exit 1
+    fi
+}
+
+ensure_pip() {
+    if python3 -m pip --version >/dev/null 2>&1; then
+        return
+    fi
+
+    echo "python3-pip not found. Installing pip for Python 3..."
+    detect_pkg_manager
+
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        sudo apt-get update
+        sudo apt-get install -y python3-pip
+    elif [ "$PKG_MANAGER" = "dnf" ]; then
+        sudo dnf install -y python3-pip
+    elif [ "$PKG_MANAGER" = "pacman" ]; then
+        sudo pacman -Sy --noconfirm python-pip
+    elif [ "$PKG_MANAGER" = "zypper" ]; then
+        sudo zypper --non-interactive install python3-pip
+    fi
+
+    if ! python3 -m pip --version >/dev/null 2>&1; then
+        echo "Failed to install python3-pip automatically." >&2
+        exit 1
+    fi
 }
 
 install_python_package() {
+    ensure_pip
     python3 -m pip uninstall -y cstaks-cde >/dev/null 2>&1 || true
     if python3 -m pip install --no-cache-dir --force-reinstall --no-binary :all: --config-settings=backend=wayland .; then
         return
@@ -113,9 +143,6 @@ if [ "${CDE_SKIP_FLATPAK:-0}" != "1" ]; then
     install_flatpak_gui
 fi
 
-echo "Installing CDE Python package..."
-install_python_package
-
 echo "Installing CDE session and defaults..."
 sudo mkdir -p /etc/cde
 sudo install -m 0644 resources/default_config.py /etc/cde/default_config.py
@@ -126,6 +153,9 @@ sudo install -m 0755 resources/cde-session /usr/local/bin/cde-session
 sudo install -m 0755 resources/cde-workspaces /usr/local/bin/cde-workspaces
 sudo install -m 0755 resources/cde-settings /usr/local/bin/cde-settings
 sudo install -m 0644 resources/cde-settings.desktop /usr/share/applications/cde-settings.desktop
+
+echo "Installing CDE Python package..."
+install_python_package
 
 if [ "${CDE_SKIP_DM:-0}" != "1" ]; then
     configure_login_manager
