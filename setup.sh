@@ -28,6 +28,57 @@ detect_pkg_manager() {
     fi
 }
 
+build_wlroots_from_source() {
+    echo "No packaged wlroots dev headers found. Building wlroots from source..."
+
+    sudo apt-get install -y \
+        meson ninja-build git \
+        libdrm-dev libgbm-dev libpixman-1-dev \
+        libvulkan-dev glslang-tools \
+        libseat-dev libxkbcommon-dev libudev-dev \
+        libxcb-dri3-dev libxcb-present-dev libxcb-composite0-dev \
+        libxcb-xinput-dev libxcb-icccm4-dev \
+        libxcb-render-util0-dev libx11-xcb-dev
+
+    # libdisplay-info-dev only exists on newer Debian/Ubuntu releases
+    sudo apt-get install -y libdisplay-info-dev 2>/dev/null || true
+    # libxcb-errors-dev may not be available on all releases
+    sudo apt-get install -y libxcb-errors-dev 2>/dev/null || true
+
+    local build_dir
+    build_dir="$(mktemp -d)"
+    # Clean up build directory on function return (success or failure)
+    trap "rm -rf ${build_dir}" RETURN
+
+    # Resolve latest stable wlroots tag at runtime
+    local wlroots_tag
+    wlroots_tag=$(git ls-remote --tags https://gitlab.freedesktop.org/wlroots/wlroots.git \
+        | awk -F'/' '{print $NF}' \
+        | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+        | sort -V \
+        | tail -1)
+
+    if [ -z "${wlroots_tag}" ]; then
+        echo "Failed to resolve a wlroots release tag. Check your internet connection." >&2
+        exit 1
+    fi
+
+    echo "Building wlroots ${wlroots_tag}..."
+    git clone --depth=1 --branch "${wlroots_tag}" \
+        https://gitlab.freedesktop.org/wlroots/wlroots.git "${build_dir}/wlroots"
+
+    meson setup "${build_dir}/wlroots/_build" "${build_dir}/wlroots" \
+        --prefix=/usr/local \
+        -Drenderers=gles2 \
+        -Dbackends=drm,libinput,wayland
+
+    ninja -C "${build_dir}/wlroots/_build"
+    sudo ninja -C "${build_dir}/wlroots/_build" install
+    sudo ldconfig
+
+    echo "wlroots ${wlroots_tag} built and installed to /usr/local."
+}
+
 install_deps() {
     echo "Installing CDE runtime dependencies..."
 
@@ -39,17 +90,20 @@ install_deps() {
             picom dunst rofi dolphin flatpak python3-tk kitty lightdm lightdm-gtk-greeter \
             build-essential python3-dev pkg-config libcairo2-dev libffi-dev libinput-dev \
             libwayland-dev libxkbcommon-dev wayland-protocols libwayland-bin
+
+        # Try packaged wlroots dev headers in order of preference; fall back to source build
         wlroots_installed=0
         for wlroots_pkg in libwlroots-dev libwlroots-0.19-dev libwlroots-0.18-dev; do
-            if sudo apt-get install -y "${wlroots_pkg}"; then
+            if sudo apt-get install -y "${wlroots_pkg}" 2>/dev/null; then
                 wlroots_installed=1
+                echo "Installed packaged wlroots: ${wlroots_pkg}"
                 break
             fi
         done
         if [ "${wlroots_installed}" -ne 1 ]; then
-            echo "No compatible wlroots development package found (tried libwlroots-dev/0.19/0.18)." >&2
-            exit 1
+            build_wlroots_from_source
         fi
+
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         dnf_common=(
             picom dunst rofi dolphin flatpak python3-tkinter kitty lightdm
@@ -60,10 +114,12 @@ install_deps() {
         if ! sudo dnf install -y "${dnf_common[@]}" wlroots0.19-devel; then
             sudo dnf install -y "${dnf_common[@]}" wlroots-devel
         fi
+
     elif [ "$PKG_MANAGER" = "pacman" ]; then
         sudo pacman -Sy --noconfirm \
             picom dunst rofi dolphin flatpak tk kitty lightdm lightdm-gtk-greeter \
             base-devel python pkgconf cairo libffi libinput wayland wayland-protocols wlroots libxkbcommon
+
     elif [ "$PKG_MANAGER" = "zypper" ]; then
         sudo zypper --non-interactive install \
             picom dunst rofi dolphin flatpak python3-tk kitty lightdm \
@@ -158,6 +214,9 @@ install_python_package() {
     fi
     # Ignore uninstall errors if package is not installed yet.
     python3 -m pip uninstall -y cstaks-cde >/dev/null 2>&1 || true
+
+    # If wlroots was built from source, make sure pkg-config can find it
+    export PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}:/usr/local/lib/pkgconfig:/usr/local/lib/$(uname -m)-linux-gnu/pkgconfig"
 
     pip_flag_sets=(
         "--config-settings=backend=wayland"
