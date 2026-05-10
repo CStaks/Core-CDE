@@ -6,8 +6,14 @@ set -euo pipefail
 # - CDE_SKIP_FLATPAK=1: skip Warehouse Flatpak installation
 # - CDE_SKIP_DM=1: skip display manager configuration
 PKG_MANAGER=""
+DEBIAN_VERSION_ID=0
+DEBIAN_CODENAME=""
 
 cd "$(dirname "$0")"
+
+# ---------------------------------------------------------------------------
+# Package manager + distro detection
+# ---------------------------------------------------------------------------
 
 detect_pkg_manager() {
     if [ -n "${PKG_MANAGER}" ]; then
@@ -28,9 +34,82 @@ detect_pkg_manager() {
     fi
 }
 
-build_wlroots_from_source() {
-    echo "No packaged wlroots dev headers found. Building wlroots from source..."
+# Populate DEBIAN_VERSION_ID and DEBIAN_CODENAME from /etc/os-release.
+# Only meaningful when PKG_MANAGER=apt; safe to call on any distro.
+detect_debian_version() {
+    if [ ! -f /etc/os-release ]; then
+        return
+    fi
+    local id=""
+    id=$(grep -E '^ID=' /etc/os-release | cut -d= -f2 | tr -d '"' | tr '[:upper:]' '[:lower:]')
+    if [ "${id}" != "debian" ]; then
+        return
+    fi
+    DEBIAN_VERSION_ID=$(grep -E '^VERSION_ID=' /etc/os-release | cut -d= -f2 | tr -d '"' || echo "0")
+    DEBIAN_CODENAME=$(grep -E '^VERSION_CODENAME=' /etc/os-release | cut -d= -f2 | tr -d '"' || echo "")
+    echo "Detected Debian ${DEBIAN_VERSION_ID} (${DEBIAN_CODENAME})"
+}
 
+# Add bookworm-backports if we are on Debian 12 and it is not already present.
+enable_bookworm_backports() {
+    local sources_list="/etc/apt/sources.list.d/bookworm-backports.list"
+    if [ -f "${sources_list}" ]; then
+        return
+    fi
+    echo "Enabling Debian bookworm-backports for newer packages..."
+    echo "deb http://deb.debian.org/debian bookworm-backports main" \
+        | sudo tee "${sources_list}" >/dev/null
+    sudo apt-get update -qq
+}
+
+# ---------------------------------------------------------------------------
+# Source builds for packages not available on Debian Bookworm
+# ---------------------------------------------------------------------------
+
+# libdisplay-info is required by wlroots >= 0.17 but is not packaged on
+# Debian 12 Bookworm. Build it from source before building wlroots.
+build_libdisplay_info_from_source() {
+    if pkg-config --exists libdisplay-info 2>/dev/null; then
+        echo "libdisplay-info already available via pkg-config, skipping source build."
+        return
+    fi
+
+    echo "Building libdisplay-info from source (required by wlroots >= 0.17)..."
+    sudo apt-get install -y meson ninja-build git hwdata
+
+    local build_dir
+    build_dir="$(mktemp -d)"
+    trap "rm -rf ${build_dir}" RETURN
+
+    local tag
+    tag=$(git ls-remote --tags https://gitlab.freedesktop.org/emersion/libdisplay-info.git \
+        | awk -F'/' '{print $NF}' \
+        | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' \
+        | sort -V \
+        | tail -1)
+
+    if [ -z "${tag}" ]; then
+        echo "Could not resolve a libdisplay-info release tag." >&2
+        exit 1
+    fi
+
+    echo "Building libdisplay-info ${tag}..."
+    git clone --depth=1 --branch "${tag}" \
+        https://gitlab.freedesktop.org/emersion/libdisplay-info.git \
+        "${build_dir}/libdisplay-info"
+
+    meson setup "${build_dir}/libdisplay-info/_build" "${build_dir}/libdisplay-info" \
+        --prefix=/usr/local
+    ninja -C "${build_dir}/libdisplay-info/_build"
+    sudo ninja -C "${build_dir}/libdisplay-info/_build" install
+    sudo ldconfig
+    echo "libdisplay-info ${tag} installed to /usr/local."
+}
+
+build_wlroots_from_source() {
+    echo "Building wlroots from source..."
+
+    # Core build toolchain and wlroots dependencies available on all supported releases
     sudo apt-get install -y \
         meson ninja-build git \
         libdrm-dev libgbm-dev libpixman-1-dev \
@@ -40,17 +119,18 @@ build_wlroots_from_source() {
         libxcb-xinput-dev libxcb-icccm4-dev \
         libxcb-render-util0-dev libx11-xcb-dev
 
-    # libdisplay-info-dev only exists on newer Debian/Ubuntu releases
-    sudo apt-get install -y libdisplay-info-dev 2>/dev/null || true
-    # libxcb-errors-dev may not be available on all releases
+    # Optional — present on Trixie+, absent on Bookworm; ignore failures
     sudo apt-get install -y libxcb-errors-dev 2>/dev/null || true
+
+    # libdisplay-info: packaged on Trixie+, needs source build on Bookworm
+    if ! sudo apt-get install -y libdisplay-info-dev 2>/dev/null; then
+        build_libdisplay_info_from_source
+    fi
 
     local build_dir
     build_dir="$(mktemp -d)"
-    # Clean up build directory on function return (success or failure)
     trap "rm -rf ${build_dir}" RETURN
 
-    # Resolve latest stable wlroots tag at runtime
     local wlroots_tag
     wlroots_tag=$(git ls-remote --tags https://gitlab.freedesktop.org/wlroots/wlroots.git \
         | awk -F'/' '{print $NF}' \
@@ -62,6 +142,11 @@ build_wlroots_from_source() {
         echo "Failed to resolve a wlroots release tag. Check your internet connection." >&2
         exit 1
     fi
+
+    # Make sure pkg-config can find source-built libdisplay-info
+    local arch
+    arch="$(uname -m)-linux-gnu"
+    export PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}:/usr/local/lib/pkgconfig:/usr/local/lib/${arch}/pkgconfig"
 
     echo "Building wlroots ${wlroots_tag}..."
     git clone --depth=1 --branch "${wlroots_tag}" \
@@ -75,9 +160,12 @@ build_wlroots_from_source() {
     ninja -C "${build_dir}/wlroots/_build"
     sudo ninja -C "${build_dir}/wlroots/_build" install
     sudo ldconfig
-
-    echo "wlroots ${wlroots_tag} built and installed to /usr/local."
+    echo "wlroots ${wlroots_tag} installed to /usr/local."
 }
+
+# ---------------------------------------------------------------------------
+# Dependency installation
+# ---------------------------------------------------------------------------
 
 install_deps() {
     echo "Installing CDE runtime dependencies..."
@@ -85,22 +173,42 @@ install_deps() {
     detect_pkg_manager
 
     if [ "$PKG_MANAGER" = "apt" ]; then
+        detect_debian_version
+
+        # On Debian 12 Bookworm, enable backports so we have the best chance
+        # of finding a recent enough wlroots package before falling back to source.
+        if [ "${DEBIAN_VERSION_ID}" = "12" ]; then
+            enable_bookworm_backports
+        fi
+
         sudo apt-get update
         sudo apt-get install -y \
             picom dunst rofi dolphin flatpak python3-tk kitty lightdm lightdm-gtk-greeter \
             build-essential python3-dev pkg-config libcairo2-dev libffi-dev libinput-dev \
             libwayland-dev libxkbcommon-dev wayland-protocols libwayland-bin
 
-        # Try packaged wlroots dev headers in order of preference; fall back to source build
+        # Try packaged wlroots dev headers newest-first.
+        # On Bookworm also try pulling from backports explicitly.
         wlroots_installed=0
-        for wlroots_pkg in libwlroots-dev libwlroots-0.19-dev libwlroots-0.18-dev; do
-            if sudo apt-get install -y "${wlroots_pkg}" 2>/dev/null; then
+        wlroots_candidates=(libwlroots-dev libwlroots-0.19-dev libwlroots-0.18-dev)
+
+        for pkg in "${wlroots_candidates[@]}"; do
+            if sudo apt-get install -y "${pkg}" 2>/dev/null; then
                 wlroots_installed=1
-                echo "Installed packaged wlroots: ${wlroots_pkg}"
+                echo "Installed packaged wlroots: ${pkg}"
                 break
             fi
+            if [ "${DEBIAN_VERSION_ID}" = "12" ]; then
+                if sudo apt-get install -y -t bookworm-backports "${pkg}" 2>/dev/null; then
+                    wlroots_installed=1
+                    echo "Installed wlroots from bookworm-backports: ${pkg}"
+                    break
+                fi
+            fi
         done
+
         if [ "${wlroots_installed}" -ne 1 ]; then
+            echo "No packaged wlroots dev headers found. Falling back to source build..."
             build_wlroots_from_source
         fi
 
@@ -128,6 +236,10 @@ install_deps() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# Flatpak GUI
+# ---------------------------------------------------------------------------
+
 install_flatpak_gui() {
     echo "Setting up Flatpak app store GUI..."
     sudo flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -138,6 +250,10 @@ install_flatpak_gui() {
     echo "Flatpak install failed. Retrying without static deltas (lower disk usage)..."
     sudo flatpak install --system -y --no-static-deltas flathub io.github.flattool.Warehouse
 }
+
+# ---------------------------------------------------------------------------
+# Display manager
+# ---------------------------------------------------------------------------
 
 configure_login_manager() {
     echo "Configuring LightDM as default login manager..."
@@ -182,6 +298,10 @@ install_session_entry() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# Python package
+# ---------------------------------------------------------------------------
+
 ensure_pip() {
     if python3 -m pip --version >/dev/null 2>&1; then
         return
@@ -215,20 +335,19 @@ install_python_package() {
     # Ignore uninstall errors if package is not installed yet.
     python3 -m pip uninstall -y cstaks-cde >/dev/null 2>&1 || true
 
-    # Accumulate every plausible pkg-config search path so pip's build subprocess
-    # can find wlroots whether it was installed via package or built from source.
+    # Ensure pkg-config can find wlroots regardless of whether it was installed
+    # from a package or built from source into /usr/local.
     local arch
     arch="$(uname -m)-linux-gnu"
     export PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}:/usr/local/lib/pkgconfig:/usr/local/lib/${arch}/pkgconfig:/usr/lib/${arch}/pkgconfig:/usr/lib/pkgconfig"
 
-    # Validate that pkg-config can actually resolve wlroots before attempting a
-    # Wayland backend build — if it can't, the C extension compile will always fail.
+    # Confirm wlroots is resolvable before attempting a Wayland backend build.
     local wayland_ok=0
     if pkg-config --exists wlroots 2>/dev/null; then
-        echo "wlroots found via pkg-config ($(pkg-config --modversion wlroots)). Attempting Wayland backend build."
+        echo "wlroots $(pkg-config --modversion wlroots) found. Attempting Wayland backend build."
         wayland_ok=1
     else
-        echo "WARNING: pkg-config cannot find wlroots. Skipping Wayland backend build attempts." >&2
+        echo "WARNING: pkg-config cannot find wlroots. Skipping Wayland backend build." >&2
     fi
 
     if [ "${wayland_ok}" -eq 1 ]; then
@@ -247,8 +366,7 @@ install_python_package() {
         echo "WARNING: All Wayland backend pip attempts failed. Falling back to default backend." >&2
     fi
 
-    # Fallback: let the package's build system pick its own backend.
-    # This may produce a reduced-functionality build but will not hard-fail.
+    # Last resort: let the package choose its own backend.
     echo "Attempting build without explicit backend selection..."
     if python3 -m pip install --no-cache-dir --force-reinstall .; then return; fi
     if python3 -m pip install --break-system-packages --no-cache-dir --force-reinstall .; then return; fi
@@ -263,6 +381,10 @@ install_python_package() {
     echo "Failed to install CDE Python package with pip." >&2
     exit 1
 }
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 detect_pkg_manager
 
