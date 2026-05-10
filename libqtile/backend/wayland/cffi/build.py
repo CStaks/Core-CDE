@@ -12,9 +12,55 @@ from setuptools import Distribution
 from setuptools.command.build_ext import build_ext
 
 QW_PATH = (Path(__file__).parent / ".." / "qw").resolve()
-WLROOTS_PATH = os.getenv("QTILE_WLROOTS_PATH", "/usr/include/wlroots-0.19")
 
 PKG_CONFIG = os.environ.get("PKG_CONFIG", "pkg-config")
+
+
+def command_stdout(args: list[str]) -> str:
+    return subprocess.run(args, text=True, stdout=subprocess.PIPE, check=False).stdout.strip()
+
+
+def pkg_config_exists(package: str) -> bool:
+    return subprocess.run([PKG_CONFIG, "--exists", package], check=False).returncode == 0
+
+
+def detect_wlroots_pkg() -> str:
+    wlroots_pkg = os.getenv("QTILE_WLROOTS_PKG")
+    if wlroots_pkg:
+        return wlroots_pkg
+
+    for candidate in ("wlroots-0.19", "wlroots-0.18", "wlroots"):
+        if pkg_config_exists(candidate):
+            return candidate
+
+    sys.exit(
+        "Could not detect a compatible wlroots pkg-config package. "
+        "Set QTILE_WLROOTS_PKG or install wlroots development files."
+    )
+
+
+def detect_wlroots_include_path(wlroots_pkg: str) -> str:
+    cflags = command_stdout([PKG_CONFIG, "--cflags-only-I", wlroots_pkg]).split()
+    for flag in cflags:
+        if flag.startswith("-I"):
+            include_dir = Path(flag[2:])
+            if (include_dir / "wlr" / "config.h").exists():
+                return include_dir.as_posix()
+
+    include_root = Path(command_stdout([PKG_CONFIG, "--variable=includedir", wlroots_pkg]))
+    candidates = [include_root / "wlroots-0.19", include_root / "wlroots-0.18", include_root]
+    for candidate in candidates:
+        if (candidate / "wlr" / "config.h").exists():
+            return candidate.as_posix()
+
+    sys.exit(
+        "Could not locate wlroots headers (wlr/config.h). "
+        "Set QTILE_WLROOTS_PATH to the wlroots include directory."
+    )
+
+
+WLROOTS_PKG = detect_wlroots_pkg()
+WLROOTS_PATH = os.getenv("QTILE_WLROOTS_PATH", detect_wlroots_include_path(WLROOTS_PKG))
 WAYLAND_SCANNER = os.environ.get("QTILE_WAYLAND_SCANNER", shutil.which("wayland-scanner"))
 if not WAYLAND_SCANNER:
     print(
@@ -23,16 +69,8 @@ if not WAYLAND_SCANNER:
         "pkg-config",
         file=sys.stderr,
     )
-    WAYLAND_SCANNER = subprocess.run(
-        [PKG_CONFIG, "--variable=wayland_scanner", "wayland-scanner"],
-        text=True,
-        stdout=subprocess.PIPE,
-    ).stdout.strip()
-WAYLAND_PROTOCOLS = subprocess.run(
-    [PKG_CONFIG, "--variable=pkgdatadir", "wayland-protocols"],
-    text=True,
-    stdout=subprocess.PIPE,
-).stdout.strip()
+    WAYLAND_SCANNER = command_stdout([PKG_CONFIG, "--variable=wayland_scanner", "wayland-scanner"])
+WAYLAND_PROTOCOLS = command_stdout([PKG_CONFIG, "--variable=pkgdatadir", "wayland-protocols"])
 
 QW_PROTO_IN_PATH = (QW_PATH / ".." / "proto").resolve()
 
@@ -217,9 +255,7 @@ SOURCE = "\n".join(f'#include "{header}"' for header in cdef_files) + "\n"
 
 
 def get_include_path(lib: str) -> str:
-    return subprocess.run(
-        ["pkg-config", "--variable=includedir", lib], text=True, stdout=subprocess.PIPE
-    ).stdout.strip()
+    return command_stdout([PKG_CONFIG, "--variable=includedir", lib])
 
 
 INCLUDE_DIRS = [
@@ -230,7 +266,7 @@ INCLUDE_DIRS = [
     QW_PATH,
     QW_PROTO_OUT_PATH,
 ]
-LIBRARIES = ["wlroots-0.19", "wayland-server", "input", "cairo"]
+LIBRARIES = [WLROOTS_PKG, "wayland-server", "input", "cairo"]
 
 # SOURCE_FILES loads all .c files...
 SOURCE_FILES = glob.glob(f"{QW_PATH}/*.c")
