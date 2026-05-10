@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
-set -eu
+set -euo pipefail
 
+# Optional environment flags:
+# - CDE_SKIP_DEPS=1: skip distro package dependency installation
+# - CDE_SKIP_FLATPAK=1: skip Warehouse Flatpak installation
+# - CDE_SKIP_DM=1: skip display manager configuration
 PKG_MANAGER=""
 
+cd "$(dirname "$0")"
+
 detect_pkg_manager() {
+    if [ -n "${PKG_MANAGER}" ]; then
+        return
+    fi
+
     if command -v apt-get >/dev/null 2>&1; then
         PKG_MANAGER="apt"
     elif command -v dnf >/dev/null 2>&1; then
@@ -29,13 +39,16 @@ install_deps() {
             picom dunst rofi dolphin flatpak python3-tk kitty lightdm lightdm-gtk-greeter \
             build-essential python3-dev pkg-config libcairo2-dev libffi-dev libinput-dev \
             libwayland-dev libxkbcommon-dev wayland-protocols libwayland-bin
-        if ! sudo apt-get install -y libwlroots-dev; then
-            if ! sudo apt-get install -y libwlroots-0.19-dev; then
-                if ! sudo apt-get install -y libwlroots-0.18-dev; then
-                    echo "No compatible wlroots development package found (tried libwlroots-dev/0.19/0.18)." >&2
-                    exit 1
-                fi
+        wlroots_installed=0
+        for wlroots_pkg in libwlroots-dev libwlroots-0.19-dev libwlroots-0.18-dev; do
+            if sudo apt-get install -y "${wlroots_pkg}"; then
+                wlroots_installed=1
+                break
             fi
+        done
+        if [ "${wlroots_installed}" -ne 1 ]; then
+            echo "No compatible wlroots development package found (tried libwlroots-dev/0.19/0.18)." >&2
+            exit 1
         fi
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         dnf_common=(
@@ -61,13 +74,13 @@ install_deps() {
 
 install_flatpak_gui() {
     echo "Setting up Flatpak app store GUI..."
-    sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-    if sudo flatpak install -y flathub io.github.flattool.Warehouse; then
+    sudo flatpak remote-add --system --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+    if sudo flatpak install --system -y flathub io.github.flattool.Warehouse; then
         return
     fi
 
     echo "Flatpak install failed. Retrying without static deltas (lower disk usage)..."
-    sudo flatpak install -y --no-static-deltas flathub io.github.flattool.Warehouse
+    sudo flatpak install --system -y --no-static-deltas flathub io.github.flattool.Warehouse
 }
 
 configure_login_manager() {
@@ -89,6 +102,7 @@ configure_login_manager() {
 configure_lightdm_session() {
     echo "Setting CDE as the default LightDM session..."
     sudo mkdir -p /etc/lightdm/lightdm.conf.d
+    # Quoted heredoc is intentional: do not expand variables while writing config.
     cat <<'EOF' | sudo tee /etc/lightdm/lightdm.conf.d/50-cde.conf >/dev/null
 [Seat:*]
 user-session=cde
@@ -142,36 +156,32 @@ install_python_package() {
     if ! python3 -m pip install --upgrade pip setuptools wheel "setuptools-scm>=7.0"; then
         python3 -m pip install --break-system-packages --upgrade pip setuptools wheel "setuptools-scm>=7.0"
     fi
+    # Ignore uninstall errors if package is not installed yet.
     python3 -m pip uninstall -y cstaks-cde >/dev/null 2>&1 || true
-    if python3 -m pip install --no-cache-dir --force-reinstall --config-settings=backend=wayland .; then
-        return
-    fi
 
-    if python3 -m pip install --break-system-packages --no-cache-dir --force-reinstall --config-settings=backend=wayland .; then
-        return
-    fi
-
-    if python3 -m pip install --no-build-isolation --no-cache-dir --force-reinstall --config-settings=backend=wayland .; then
-        return
-    fi
-
-    if python3 -m pip install --break-system-packages --no-build-isolation --no-cache-dir --force-reinstall --config-settings=backend=wayland .; then
-        return
-    fi
+    pip_flag_sets=(
+        "--config-settings=backend=wayland"
+        "--break-system-packages --config-settings=backend=wayland"
+        "--no-build-isolation --config-settings=backend=wayland"
+        "--break-system-packages --no-build-isolation --config-settings=backend=wayland"
+    )
+    for pip_flags in "${pip_flag_sets[@]}"; do
+        # shellcheck disable=SC2086
+        if python3 -m pip install --no-cache-dir --force-reinstall ${pip_flags} .; then
+            return
+        fi
+    done
 
     if python3 -m pip install --help 2>/dev/null | grep -q -- "--no-use-pep517"; then
-        if python3 -m pip install --no-use-pep517 --no-cache-dir --force-reinstall .; then
-            return
-        fi
-
-        if python3 -m pip install --break-system-packages --no-use-pep517 --no-cache-dir --force-reinstall .; then
-            return
-        fi
+        if python3 -m pip install --no-use-pep517 --no-cache-dir --force-reinstall .; then return; fi
+        if python3 -m pip install --break-system-packages --no-use-pep517 --no-cache-dir --force-reinstall .; then return; fi
     fi
 
     echo "Failed to install CDE Python package with pip." >&2
     exit 1
 }
+
+detect_pkg_manager
 
 if [ "${CDE_SKIP_DEPS:-0}" != "1" ]; then
     install_deps
@@ -203,3 +213,4 @@ fi
 echo "CDE installed. LightDM is configured to default to \"CDE\"."
 echo "Flatpak GUI installed: Warehouse (launch with: flatpak run io.github.flattool.Warehouse)"
 echo "Login manager: LightDM (disable with CDE_SKIP_DM=1)"
+echo "Active setup flags: CDE_SKIP_DEPS=${CDE_SKIP_DEPS:-0} CDE_SKIP_FLATPAK=${CDE_SKIP_FLATPAK:-0} CDE_SKIP_DM=${CDE_SKIP_DM:-0}"
