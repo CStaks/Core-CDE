@@ -39,22 +39,6 @@ Default keybinds from the shipped CDE config:
 - `Super + ,`: CDE settings GUI
 - `Super + F`: fullscreen toggle
 
-Settings app highlights:
-
-- Sectioned settings layout: `General`, `Appearance`, `Launchers`, `Updates`, `Advanced`
-- Update channel switch (`stable` or `nightly`)
-- `Check for Updates` and `Update CDE` actions
-- One-time onboarding with welcome screen, theme choice, and update-channel choice
-- `nightly` tracks `origin/main`; `stable` tracks `origin/stable`
-- `Update CDE` force-syncs to selected remote channel and discards local repo changes
-
-Desktop highlights:
-
-- Dock-style bottom bar with launcher icons
-- Single workspace icon opens a workspace picker (up to 10 workspaces)
-
-
-
 Session commands after install:
 
 - `cde start` (start CDE directly on Wayland)
@@ -67,7 +51,7 @@ Session commands after install:
 - `Manual Publish Packages` is manual (`workflow_dispatch`) and is typically more stable than nightly
 - Manual PyPI publish has guardrails: it requires running from `main`, explicit confirmation (`confirm_stable_release=publish-stable`), and preflight build/twine/import checks before publishing.
 
-Install/update one-liners (no manual `chmod` needed):
+Install/update one-liners (you can also update in the settings app):
 
 - Nightly:
   ```bash
