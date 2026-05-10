@@ -185,7 +185,15 @@ install_deps() {
         sudo apt-get install -y \
             picom dunst rofi dolphin flatpak python3-tk kitty lightdm lightdm-gtk-greeter \
             build-essential python3-dev pkg-config libcairo2-dev libffi-dev libinput-dev \
-            libwayland-dev libxkbcommon-dev wayland-protocols libwayland-bin
+            libwayland-dev libxkbcommon-dev wayland-protocols libwayland-bin \
+            xwayland \
+            libgl1-mesa-dri libgl1 libegl1 libgles2 \
+            libegl-mesa0 libgbm1 libglx-mesa0 \
+            mesa-vulkan-drivers libvulkan1 \
+            libdrm2 libpixman-1-0 libseat1 libinput10 \
+            libxkbcommon0 libxcb-icccm4 libxcb-image0 libxcb-render-util0 \
+            libxcb-xinerama0 libxcb-xinput0 libxcb-xkb1 \
+            dbus-x11 rtkit
 
         # Try packaged wlroots dev headers newest-first.
         # On Bookworm also try pulling from backports explicitly.
