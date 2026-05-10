@@ -23,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Ensure setup script is executable
+        run: chmod +x setup.sh
       - name: Validate stable release request
         run: |
           if [ "${{ inputs.publish_target }}" = "pypi" ] && [ "${{ inputs.confirm_stable_release }}" != "publish-stable" ]; then

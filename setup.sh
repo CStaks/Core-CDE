@@ -25,20 +25,37 @@ install_deps() {
 
     if [ "$PKG_MANAGER" = "apt" ]; then
         sudo apt-get update
-        sudo apt-get install -y picom dunst rofi dolphin flatpak python3-tk kitty lightdm lightdm-gtk-greeter
+        sudo apt-get install -y \
+            picom dunst rofi dolphin flatpak python3-tk kitty lightdm lightdm-gtk-greeter \
+            build-essential python3-dev pkg-config libcairo2-dev libffi-dev libinput-dev \
+            libwayland-dev libxkbcommon-dev wayland-protocols libwayland-bin
+        if ! sudo apt-get install -y libwlroots-dev; then
+            if ! sudo apt-get install -y libwlroots-0.19-dev; then
+                if ! sudo apt-get install -y libwlroots-0.18-dev; then
+                    echo "No compatible wlroots development package found (tried libwlroots-dev/0.19/0.18)." >&2
+                    exit 1
+                fi
+            fi
+        fi
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         dnf_common=(
             picom dunst rofi dolphin flatpak python3-tkinter kitty lightdm
             gcc python3-devel cairo-devel libinput-devel
             wayland-devel wayland-protocols-devel wayland-utils
+            pkgconf-pkg-config libffi-devel libxkbcommon-devel
         )
         if ! sudo dnf install -y "${dnf_common[@]}" wlroots0.19-devel; then
             sudo dnf install -y "${dnf_common[@]}" wlroots-devel
         fi
     elif [ "$PKG_MANAGER" = "pacman" ]; then
-        sudo pacman -Sy --noconfirm picom dunst rofi dolphin flatpak tk kitty lightdm lightdm-gtk-greeter
+        sudo pacman -Sy --noconfirm \
+            picom dunst rofi dolphin flatpak tk kitty lightdm lightdm-gtk-greeter \
+            base-devel python pkgconf cairo libffi libinput wayland wayland-protocols wlroots libxkbcommon
     elif [ "$PKG_MANAGER" = "zypper" ]; then
-        sudo zypper --non-interactive install picom dunst rofi dolphin flatpak python3-tk kitty lightdm
+        sudo zypper --non-interactive install \
+            picom dunst rofi dolphin flatpak python3-tk kitty lightdm \
+            gcc make python3-devel pkg-config cairo-devel libffi-devel libinput-devel \
+            wayland-devel wayland-protocols-devel wlroots-devel libxkbcommon-devel
     fi
 }
 
@@ -122,12 +139,15 @@ ensure_pip() {
 
 install_python_package() {
     ensure_pip
+    if ! python3 -m pip install --upgrade pip setuptools wheel "setuptools-scm>=7.0" "cffi>=1.1.0" "cairocffi[xcb]>=1.6.0"; then
+        python3 -m pip install --break-system-packages --upgrade pip setuptools wheel "setuptools-scm>=7.0" "cffi>=1.1.0" "cairocffi[xcb]>=1.6.0"
+    fi
     python3 -m pip uninstall -y cstaks-cde >/dev/null 2>&1 || true
-    if python3 -m pip install --no-cache-dir --force-reinstall --no-binary :all: --config-settings=backend=wayland .; then
+    if python3 -m pip install --no-build-isolation --no-cache-dir --force-reinstall --no-binary :all: --config-settings=backend=wayland .; then
         return
     fi
 
-    if python3 -m pip install --break-system-packages --no-cache-dir --force-reinstall --no-binary :all: --config-settings=backend=wayland .; then
+    if python3 -m pip install --break-system-packages --no-build-isolation --no-cache-dir --force-reinstall --no-binary :all: --config-settings=backend=wayland .; then
         return
     fi
 

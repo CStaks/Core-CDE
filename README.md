@@ -19,13 +19,9 @@ You must have git installed.
    git clone https://github.com/CStaks/Core-CDE
    cd Core-CDE
    ```
-2.1. Make the setup file executable, run:
+2. Run setup from this repository:
    ```bash
-   chmod +x setup.sh
-   ```
-2.2. From this repository, run:
-   ```bash
-   ./setup.sh
+   bash setup.sh
    ```
    Run as your normal user (not `sudo`)
 3. Restart your device.
@@ -70,6 +66,25 @@ Session commands after install:
 - `Nightly Source Release` is automatic on pushes to `main` and publishes a `nightly` (can be unstable)
 - `Manual Publish Packages` is manual (`workflow_dispatch`) and is typically more stable than nightly
 - Manual PyPI publish has guardrails: it requires running from `main`, explicit confirmation (`confirm_stable_release=publish-stable`), and preflight build/twine/import checks before publishing.
+
+Install/update one-liners (no manual `chmod` needed):
+
+- Nightly:
+  ```bash
+  git clone --branch main https://github.com/CStaks/Core-CDE.git Core-CDE && cd Core-CDE && bash setup.sh
+  ```
+- Stable:
+  ```bash
+  git clone --branch stable https://github.com/CStaks/Core-CDE.git Core-CDE && cd Core-CDE && bash setup.sh
+  ```
+- Update existing checkout to nightly:
+  ```bash
+  cd Core-CDE && git fetch origin && git checkout main && git reset --hard origin/main && CDE_SKIP_FLATPAK=1 bash setup.sh
+  ```
+- Update existing checkout to stable:
+  ```bash
+  cd Core-CDE && git fetch origin && git checkout stable && git reset --hard origin/stable && CDE_SKIP_FLATPAK=1 bash setup.sh
+  ```
 
 ## 🤝 Contributing
 See CONTRIBUTING.md
