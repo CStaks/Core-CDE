@@ -159,12 +159,14 @@ install_python_package() {
         return
     fi
 
-    if python3 -m pip install --no-use-pep517 --no-cache-dir --force-reinstall .; then
-        return
-    fi
+    if python3 -m pip install --help 2>/dev/null | grep -q -- "--no-use-pep517"; then
+        if python3 -m pip install --no-use-pep517 --no-cache-dir --force-reinstall .; then
+            return
+        fi
 
-    if python3 -m pip install --break-system-packages --no-use-pep517 --no-cache-dir --force-reinstall .; then
-        return
+        if python3 -m pip install --break-system-packages --no-use-pep517 --no-cache-dir --force-reinstall .; then
+            return
+        fi
     fi
 
     echo "Failed to install CDE Python package with pip." >&2
