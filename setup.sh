@@ -215,21 +215,45 @@ install_python_package() {
     # Ignore uninstall errors if package is not installed yet.
     python3 -m pip uninstall -y cstaks-cde >/dev/null 2>&1 || true
 
-    # If wlroots was built from source, make sure pkg-config can find it
-    export PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}:/usr/local/lib/pkgconfig:/usr/local/lib/$(uname -m)-linux-gnu/pkgconfig"
+    # Accumulate every plausible pkg-config search path so pip's build subprocess
+    # can find wlroots whether it was installed via package or built from source.
+    local arch
+    arch="$(uname -m)-linux-gnu"
+    export PKG_CONFIG_PATH="${PKG_CONFIG_PATH:-}:/usr/local/lib/pkgconfig:/usr/local/lib/${arch}/pkgconfig:/usr/lib/${arch}/pkgconfig:/usr/lib/pkgconfig"
 
-    pip_flag_sets=(
-        "--config-settings=backend=wayland"
-        "--break-system-packages --config-settings=backend=wayland"
-        "--no-build-isolation --config-settings=backend=wayland"
-        "--break-system-packages --no-build-isolation --config-settings=backend=wayland"
-    )
-    for pip_flags in "${pip_flag_sets[@]}"; do
-        # shellcheck disable=SC2086
-        if python3 -m pip install --no-cache-dir --force-reinstall ${pip_flags} .; then
-            return
-        fi
-    done
+    # Validate that pkg-config can actually resolve wlroots before attempting a
+    # Wayland backend build — if it can't, the C extension compile will always fail.
+    local wayland_ok=0
+    if pkg-config --exists wlroots 2>/dev/null; then
+        echo "wlroots found via pkg-config ($(pkg-config --modversion wlroots)). Attempting Wayland backend build."
+        wayland_ok=1
+    else
+        echo "WARNING: pkg-config cannot find wlroots. Skipping Wayland backend build attempts." >&2
+    fi
+
+    if [ "${wayland_ok}" -eq 1 ]; then
+        pip_flag_sets=(
+            "--config-settings=backend=wayland"
+            "--break-system-packages --config-settings=backend=wayland"
+            "--no-build-isolation --config-settings=backend=wayland"
+            "--break-system-packages --no-build-isolation --config-settings=backend=wayland"
+        )
+        for pip_flags in "${pip_flag_sets[@]}"; do
+            # shellcheck disable=SC2086
+            if python3 -m pip install --no-cache-dir --force-reinstall ${pip_flags} .; then
+                return
+            fi
+        done
+        echo "WARNING: All Wayland backend pip attempts failed. Falling back to default backend." >&2
+    fi
+
+    # Fallback: let the package's build system pick its own backend.
+    # This may produce a reduced-functionality build but will not hard-fail.
+    echo "Attempting build without explicit backend selection..."
+    if python3 -m pip install --no-cache-dir --force-reinstall .; then return; fi
+    if python3 -m pip install --break-system-packages --no-cache-dir --force-reinstall .; then return; fi
+    if python3 -m pip install --no-build-isolation --no-cache-dir --force-reinstall .; then return; fi
+    if python3 -m pip install --break-system-packages --no-build-isolation --no-cache-dir --force-reinstall .; then return; fi
 
     if python3 -m pip install --help 2>/dev/null | grep -q -- "--no-use-pep517"; then
         if python3 -m pip install --no-use-pep517 --no-cache-dir --force-reinstall .; then return; fi
