@@ -143,11 +143,11 @@ install_python_package() {
         python3 -m pip install --break-system-packages --upgrade pip setuptools wheel "setuptools-scm>=7.0" "cffi>=1.1.0" "cairocffi[xcb]>=1.6.0"
     fi
     python3 -m pip uninstall -y cstaks-cde >/dev/null 2>&1 || true
-    if python3 -m pip install --no-build-isolation --no-cache-dir --force-reinstall --no-binary :all: --config-settings=backend=wayland .; then
+    if python3 -m pip install --no-build-isolation --no-cache-dir --force-reinstall --config-settings=backend=wayland .; then
         return
     fi
 
-    if python3 -m pip install --break-system-packages --no-build-isolation --no-cache-dir --force-reinstall --no-binary :all: --config-settings=backend=wayland .; then
+    if python3 -m pip install --break-system-packages --no-build-isolation --no-cache-dir --force-reinstall --config-settings=backend=wayland .; then
         return
     fi
 
