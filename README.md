@@ -79,11 +79,11 @@ Install/update one-liners (no manual `chmod` needed):
   ```
 - Update existing checkout to nightly:
   ```bash
-  cd Core-CDE && git fetch origin && git checkout main && git reset --hard origin/main && CDE_SKIP_FLATPAK=1 bash setup.sh
+  cd Core-CDE && git -c core.hooksPath=/dev/null fetch origin && git -c core.hooksPath=/dev/null checkout main && git -c core.hooksPath=/dev/null reset --hard origin/main && CDE_SKIP_FLATPAK=1 bash setup.sh
   ```
 - Update existing checkout to stable:
   ```bash
-  cd Core-CDE && git fetch origin && git checkout stable && git reset --hard origin/stable && CDE_SKIP_FLATPAK=1 bash setup.sh
+  cd Core-CDE && git -c core.hooksPath=/dev/null fetch origin && git -c core.hooksPath=/dev/null checkout stable && git -c core.hooksPath=/dev/null reset --hard origin/stable && CDE_SKIP_FLATPAK=1 bash setup.sh
   ```
 
 ## 🤝 Contributing

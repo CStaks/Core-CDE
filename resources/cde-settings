@@ -245,11 +245,11 @@ def launch_update_terminal(repo_path: Path, terminal_command: str, target_branch
 
     update_script = (
         f"set -e; cd {shlex.quote(str(repo_path))}; "
-        "git fetch --quiet origin; "
-        f"git checkout {shlex.quote(target_branch)} 2>/dev/null || "
-        f"git checkout -b {shlex.quote(target_branch)} origin/{shlex.quote(target_branch)}; "
-        f"git reset --hard origin/{shlex.quote(target_branch)}; "
-        "git clean -fd; "
+        "git -c core.hooksPath=/dev/null fetch --quiet origin; "
+        f"git -c core.hooksPath=/dev/null checkout {shlex.quote(target_branch)} 2>/dev/null || "
+        f"git -c core.hooksPath=/dev/null checkout -b {shlex.quote(target_branch)} origin/{shlex.quote(target_branch)}; "
+        f"git -c core.hooksPath=/dev/null reset --hard origin/{shlex.quote(target_branch)}; "
+        "git -c core.hooksPath=/dev/null clean -fd; "
         "if CDE_SKIP_FLATPAK=1 bash ./setup.sh; then "
         "echo 'CDE update finished successfully.'; "
         "else "
